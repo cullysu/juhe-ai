@@ -4,7 +4,7 @@ import { optionalString, parseOptionalJsonObject } from './value-utils.js'
 
 export type UsageRecordRow = Record<string, unknown>
 
-const gatewayUnselectedAccountName = '网关未选中账号'
+const gatewayUnselectedAccountName = '无目标账户'
 
 export function hydrateUsageRecordNames(rows: UsageRecordRow[]): UsageRecordRow[] {
   if (!rows.length) return rows

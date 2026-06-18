@@ -2,7 +2,7 @@ import type { UsageRecordSummary } from '@/types/domain'
 import { accountDisplayText, errorText } from '../../views/usage-records/usageRecordFormatters'
 
 const failedNoAccount = usageRecord({ success: false })
-assertEqual(accountDisplayText(failedNoAccount), '网关未选中账号', '失败记录未选中上游账号时应显示网关语义')
+assertEqual(accountDisplayText(failedNoAccount), '无目标账户', '失败记录未选中上游账号时应显示无目标账户')
 assertEqual(errorText(failedNoAccount), '没有可调度的上游账号', '失败记录未选中上游账号时应保留可调度错误提示')
 
 assertEqual(
@@ -21,7 +21,7 @@ assertEqual(
   '已有账号名称时应优先显示真实账号名称'
 )
 
-console.log('使用记录 formatter 回归通过：无选中上游账号的失败记录显示网关语义')
+console.log('使用记录 formatter 回归通过：无选中上游账号的失败记录显示无目标账户')
 
 function usageRecord(overrides: Partial<UsageRecordSummary> = {}): UsageRecordSummary {
   return {
