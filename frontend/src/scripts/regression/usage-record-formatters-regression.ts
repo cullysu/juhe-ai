@@ -3,7 +3,7 @@ import { accountDisplayText, errorText } from '../../views/usage-records/usageRe
 
 const failedNoAccount = usageRecord({ success: false })
 assertEqual(accountDisplayText(failedNoAccount), '无目标账户', '失败记录未选中上游账号时应显示无目标账户')
-assertEqual(errorText(failedNoAccount), '没有可调度的上游账号', '失败记录未选中上游账号时应保留可调度错误提示')
+assertEqual(errorText(failedNoAccount), '无目标账户', '失败记录未选中上游账号时错误提示也应显示无目标账户')
 
 assertEqual(
   accountDisplayText(usageRecord({ success: false, accountId: 'account_deleted_or_unknown' })),

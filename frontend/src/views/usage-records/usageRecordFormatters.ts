@@ -85,7 +85,7 @@ export function trafficSourceColor(record: UsageRecordSummary): string {
 export function errorText(record: UsageRecordSummary): string {
   if (record.errorMessage) return record.errorMessage
   if (record.responseSnapshot) return JSON.stringify(record.responseSnapshot, null, 2)
-  if (!record.accountId && !record.success) return '没有可调度的上游账号'
+  if (!record.accountId && !record.success) return '无目标账户'
   return '-'
 }
 
