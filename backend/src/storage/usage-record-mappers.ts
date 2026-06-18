@@ -4,6 +4,8 @@ import { optionalString, parseOptionalJsonObject } from './value-utils.js'
 
 export type UsageRecordRow = Record<string, unknown>
 
+const gatewayUnselectedAccountName = '网关未选中账号'
+
 export function hydrateUsageRecordNames(rows: UsageRecordRow[]): UsageRecordRow[] {
   if (!rows.length) return rows
   const apiKeyNames = loadApiKeyNameMap(rows.map((row) => optionalString(row.api_key_id) ?? ''))
@@ -34,19 +36,21 @@ export function usageRecordSummaryFromRow(
   const stream = row.stream === 1
   const statusCode = numberValue(row.status_code)
   const success = row.success === 1
+  const trafficSource = usageRecordTrafficSource(row.traffic_source)
+  const accountId = optionalString(row.account_id)
   return {
     id: String(row.id),
     systemAccountId: shouldIncludeSystemAccountFields ? optionalString(row.system_account_id) : undefined,
     systemAccountName: shouldIncludeSystemAccountFields ? accountNames.get(String(row.system_account_id)) : undefined,
     traceId: String(row.trace_id),
-    trafficSource: usageRecordTrafficSource(row.traffic_source),
+    trafficSource,
     clientIp: optionalString(row.client_ip),
     apiKeyId: optionalString(row.api_key_id),
     apiKeyName: optionalString(row.api_key_name),
     groupId: optionalString(row.group_id),
     groupName: optionalString(row.group_name),
-    accountId: optionalString(row.account_id),
-    accountName: optionalString(row.account_name),
+    accountId,
+    accountName: usageRecordAccountName(row, success, trafficSource),
     endpoint: optionalString(row.endpoint) ?? endpointFromSnapshot(requestSnapshot),
     providerCode: optionalString(row.provider_code),
     model,
@@ -72,6 +76,23 @@ export function usageRecordSummaryFromRow(
     responseSnapshot: includeSnapshots ? parseOptionalJsonObject(row.response_snapshot_json) : undefined,
     createdAt: String(row.created_at)
   }
+}
+
+function usageRecordAccountName(
+  row: UsageRecordRow,
+  success: boolean,
+  trafficSource: UsageRecordSummary['trafficSource']
+): string | undefined {
+  const accountName = optionalString(row.account_name)
+  if (accountName) return accountName
+  if (!optionalString(row.account_id) && !success && isNoSelectedAccountTrafficSource(trafficSource)) {
+    return gatewayUnselectedAccountName
+  }
+  return undefined
+}
+
+function isNoSelectedAccountTrafficSource(value: UsageRecordSummary['trafficSource']): boolean {
+  return value === 'gateway' || value === 'manual_account_test' || value === 'cooldown_retest'
 }
 
 function usageRecordTrafficSource(value: unknown): UsageRecordSummary['trafficSource'] {

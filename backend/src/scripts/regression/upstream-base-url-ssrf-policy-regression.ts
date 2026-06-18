@@ -8,6 +8,7 @@ import { normalizeAccountCredentialsForWrite } from '../../storage/repositories.
 import { prepareSafeUpstreamRequestUrl } from '../../shared/upstream-url-policy.js'
 
 const previousPolicy = { ...runtimeConfig.upstreamUrlSecurity }
+const previousFakeIpDohRecheck = process.env.JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK
 runtimeConfig.upstreamUrlSecurity.allowPrivateBaseUrls = false
 runtimeConfig.upstreamUrlSecurity.privateBaseUrlAllowlist = []
 
@@ -18,6 +19,7 @@ const unsafeBaseUrls = [
   'http://10.0.0.1/v1',
   'http://172.16.0.1/v1',
   'http://192.168.1.1/v1',
+  'https://198.18.0.1/v1',
   'http://[::1]/v1',
   'http://[::ffff:127.0.0.1]/v1',
   'http://[::ffff:a00:1]/v1',
@@ -85,6 +87,61 @@ try {
     '公网 IPv6 上游地址应允许保存'
   )
 
+  const fakeIpLookup = async () => [{ address: '198.18.12.34', family: 4 as const }]
+  const safeFakeIpResult = await prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
+    lookupHost: fakeIpLookup,
+    resolvePublicDnsHost: async () => [{ address: '104.18.1.1', family: 4 }]
+  })
+  assert.deepEqual(
+    await lookupAll(safeFakeIpResult.lookup),
+    [{ address: '198.18.12.34', family: 4 }],
+    'fake-ip DoH 复核只应放行安全判断，真实出站 lookup 仍应沿用系统 fake-ip 结果'
+  )
+  await assert.rejects(
+    () => prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
+      lookupHost: fakeIpLookup,
+      resolvePublicDnsHost: async () => [{ address: '127.0.0.1', family: 4 }]
+    }),
+    /上游 Base URL/,
+    'fake-ip DoH 复核解析到私网地址时必须继续拒绝'
+  )
+  await assert.rejects(
+    () => prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
+      lookupHost: fakeIpLookup,
+      resolvePublicDnsHost: async () => []
+    }),
+    /上游 Base URL/,
+    'fake-ip DoH 复核没有公网 A/AAAA 结果时必须失败关闭'
+  )
+  await assert.rejects(
+    () => prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
+      lookupHost: fakeIpLookup,
+      resolvePublicDnsHost: async () => [{ address: 'not-an-ip', family: 4 }]
+    }),
+    /上游 Base URL/,
+    'fake-ip DoH 复核结果不是有效 A/AAAA 地址时必须失败关闭'
+  )
+  await assert.rejects(
+    () => prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
+      lookupHost: fakeIpLookup,
+      resolvePublicDnsHost: async () => {
+        throw new Error('simulated doh timeout')
+      }
+    }),
+    /上游 Base URL/,
+    'fake-ip DoH 复核超时或异常时必须失败关闭'
+  )
+  process.env.JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK = 'false'
+  await assert.rejects(
+    () => prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
+      lookupHost: fakeIpLookup,
+      resolvePublicDnsHost: async () => [{ address: '104.18.1.1', family: 4 }]
+    }),
+    /上游 Base URL/,
+    '显式关闭 fake-ip DoH 复核后应恢复阻断 198.18/15 的行为'
+  )
+  restoreOptionalEnv('JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK', previousFakeIpDohRecheck)
+
   runtimeConfig.upstreamUrlSecurity.privateBaseUrlAllowlist = ['127.0.0.1']
   assert.doesNotThrow(
     () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-ssrf-policy', base_url: 'http://127.0.0.1:9/v1' }),
@@ -146,6 +203,7 @@ try {
 } finally {
   runtimeConfig.upstreamUrlSecurity.allowPrivateBaseUrls = previousPolicy.allowPrivateBaseUrls
   runtimeConfig.upstreamUrlSecurity.privateBaseUrlAllowlist = previousPolicy.privateBaseUrlAllowlist
+  restoreOptionalEnv('JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK', previousFakeIpDohRecheck)
 }
 
 function spawnRuntimeImport(env: Record<string, string>) {
@@ -162,4 +220,25 @@ function spawnRuntimeImport(env: Record<string, string>) {
     },
     encoding: 'utf8'
   })
+}
+
+function lookupAll(lookup: Awaited<ReturnType<typeof prepareSafeUpstreamRequestUrl>>['lookup']): Promise<Array<{ address: string; family: number }>> {
+  assert(lookup, 'fake-ip 放行结果应带固定 lookup')
+  return new Promise((resolve, reject) => {
+    lookup('vsllm.example', { all: true }, (error: NodeJS.ErrnoException | null, addresses: unknown) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve(addresses as Array<{ address: string; family: number }>)
+    })
+  })
+}
+
+function restoreOptionalEnv(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name]
+    return
+  }
+  process.env[name] = value
 }

@@ -17,7 +17,7 @@ export function displayUsageRecordGroupName(name?: string, id?: string): string 
 export function accountDisplayText(record: UsageRecordSummary): string {
   if (record.accountName) return record.accountName
   if (record.accountId) return '已删除或未知'
-  if (!record.success) return '未分配账号'
+  if (!record.success) return '网关未选中账号'
   return '-'
 }
 

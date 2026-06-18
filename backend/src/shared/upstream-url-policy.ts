@@ -15,6 +15,12 @@ import {
 
 type UpstreamUrlSecurityConfig = RuntimeConfig['upstreamUrlSecurity']
 type UpstreamLookup = NonNullable<RequestOptions['lookup']>
+type DnsRecordType = 'A' | 'AAAA'
+
+interface UpstreamRequestUrlResolutionOptions {
+  lookupHost?: (hostname: string) => Promise<ResolvedAddress[]>
+  resolvePublicDnsHost?: (hostname: string) => Promise<ResolvedAddress[]>
+}
 
 export class UnsafeUpstreamUrlError extends Error {
   constructor(message = '上游 Base URL 不能指向本机、内网、链路本地或保留地址') {
@@ -26,6 +32,29 @@ interface ResolvedAddress {
   address: string
   family: 4 | 6
 }
+
+interface FakeIpDohCacheEntry {
+  expiresAt: number
+  addresses: ResolvedAddress[]
+}
+
+interface DohJsonResponse {
+  Status?: number
+  Answer?: Array<{
+    type?: number
+    data?: string
+  }>
+}
+
+const fakeIpDohRecheckEnvName = 'JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK'
+const fakeIpDohRecheckTimeoutMs = 2500
+const fakeIpDohRecheckCacheTtlMs = 5 * 60 * 1000
+const fakeIpDohRecheckCacheMax = 500
+const fakeIpDohRecheckCache = new Map<string, FakeIpDohCacheEntry>()
+const fakeIpDohProviders = [
+  (hostname: string, type: DnsRecordType) => `https://cloudflare-dns.com/dns-query?${new URLSearchParams({ name: hostname, type, ct: 'application/dns-json' })}`,
+  (hostname: string, type: DnsRecordType) => `https://dns.google/resolve?${new URLSearchParams({ name: hostname, type })}`
+]
 
 const blockedIpv4Ranges = [
   ['0.0.0.0', 8],
@@ -78,7 +107,8 @@ export function assertSafeUpstreamBaseUrl(
 
 export async function prepareSafeUpstreamRequestUrl(
   value: string,
-  config: UpstreamUrlSecurityConfig = runtimeConfig.upstreamUrlSecurity
+  config: UpstreamUrlSecurityConfig = runtimeConfig.upstreamUrlSecurity,
+  options: UpstreamRequestUrlResolutionOptions = {}
 ): Promise<{ url: URL; lookup?: UpstreamLookup }> {
   const url = parseUpstreamUrl(value, config, upstreamRequestUrlPolicy)
   assertSafeUpstreamUrl(url, config)
@@ -87,13 +117,112 @@ export async function prepareSafeUpstreamRequestUrl(
   if (config.allowPrivateBaseUrls || isIP(hostname)) {
     return { url }
   }
-  const addresses = await lookup(url.hostname, { all: true, verbatim: true }) as ResolvedAddress[]
-  for (const address of addresses) {
-    if (!allowlistedHost && !isAllowedPrivateHostToken(address.address, config) && isPrivateOrReservedIp(address.address)) {
-      throw new UnsafeUpstreamUrlError()
-    }
+  const addresses = await (options.lookupHost ?? lookupHost)(url.hostname)
+  if (!allowlistedHost) {
+    await assertSafeResolvedAddresses(url.hostname, addresses, config, options)
   }
   return { url, lookup: fixedLookup(addresses) }
+}
+
+async function lookupHost(hostname: string): Promise<ResolvedAddress[]> {
+  return lookup(hostname, { all: true, verbatim: true }) as Promise<ResolvedAddress[]>
+}
+
+async function assertSafeResolvedAddresses(
+  hostname: string,
+  addresses: ResolvedAddress[],
+  config: UpstreamUrlSecurityConfig,
+  options: UpstreamRequestUrlResolutionOptions
+): Promise<void> {
+  const unsafeAddresses = addresses.filter((address) => {
+    return !isAllowedPrivateHostToken(address.address, config) && isPrivateOrReservedIp(address.address)
+  })
+  if (unsafeAddresses.length === 0) return
+  if (shouldRecheckFakeIpDns(hostname, addresses, unsafeAddresses)) {
+    try {
+      const publicAddresses = await (options.resolvePublicDnsHost ?? resolvePublicDnsHost)(hostname)
+      if (isSafePublicDohAnswer(publicAddresses)) {
+        return
+      }
+    } catch {
+    }
+  }
+  throw new UnsafeUpstreamUrlError()
+}
+
+function shouldRecheckFakeIpDns(hostname: string, addresses: ResolvedAddress[], unsafeAddresses: ResolvedAddress[]): boolean {
+  return fakeIpDohRecheckEnabled()
+    && !isIP(normalizeHostToken(hostname))
+    && addresses.length > 0
+    && unsafeAddresses.length === addresses.length
+    && addresses.every((address) => isFakeIpDnsAddress(address.address))
+}
+
+function fakeIpDohRecheckEnabled(): boolean {
+  return process.env[fakeIpDohRecheckEnvName]?.trim().toLowerCase() !== 'false'
+}
+
+function isSafePublicDohAnswer(addresses: ResolvedAddress[]): boolean {
+  return addresses.length > 0 && addresses.every((address) => {
+    return isIP(normalizeHostToken(address.address)) === address.family && !isPrivateOrReservedIp(address.address)
+  })
+}
+
+async function resolvePublicDnsHost(hostname: string): Promise<ResolvedAddress[]> {
+  const normalized = normalizeHostToken(hostname)
+  const cached = fakeIpDohRecheckCache.get(normalized)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.addresses.map((address) => ({ ...address }))
+  }
+  for (const provider of fakeIpDohProviders) {
+    try {
+      const addresses = [
+        ...(await queryDohJson(provider(normalized, 'A'), 'A')),
+        ...(await queryDohJson(provider(normalized, 'AAAA'), 'AAAA'))
+      ]
+      if (addresses.length > 0) {
+        cacheFakeIpDohAnswer(normalized, addresses)
+        return addresses
+      }
+    } catch {
+      continue
+    }
+  }
+  return []
+}
+
+async function queryDohJson(url: string, type: DnsRecordType): Promise<ResolvedAddress[]> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), fakeIpDohRecheckTimeoutMs)
+  try {
+    const response = await fetch(url, {
+      headers: { accept: 'application/dns-json' },
+      signal: controller.signal
+    })
+    if (!response.ok) {
+      throw new Error(`DoH query failed with status ${response.status}`)
+    }
+    const body = await response.json() as DohJsonResponse
+    if (body.Status !== undefined && body.Status !== 0) return []
+    const family = type === 'A' ? 4 : 6
+    const dnsType = type === 'A' ? 1 : 28
+    return (body.Answer ?? [])
+      .filter((answer) => answer.type === dnsType && typeof answer.data === 'string' && isIP(answer.data) === family)
+      .map((answer) => ({ address: String(answer.data), family }))
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function cacheFakeIpDohAnswer(hostname: string, addresses: ResolvedAddress[]): void {
+  if (fakeIpDohRecheckCache.size >= fakeIpDohRecheckCacheMax) {
+    const oldestKey = fakeIpDohRecheckCache.keys().next().value
+    if (oldestKey) fakeIpDohRecheckCache.delete(oldestKey)
+  }
+  fakeIpDohRecheckCache.set(hostname, {
+    expiresAt: Date.now() + fakeIpDohRecheckCacheTtlMs,
+    addresses: addresses.map((address) => ({ ...address }))
+  })
 }
 
 function parseUpstreamUrl(
@@ -160,6 +289,11 @@ function isPrivateOrReservedIp(value: string): boolean {
     return isBlockedIpv6(normalized)
   }
   return false
+}
+
+function isFakeIpDnsAddress(value: string): boolean {
+  const parts = parseIpv4Parts(normalizeHostToken(value))
+  return Boolean(parts && ipv4MatchesPrefix(parts, [198, 18, 0, 0], 15))
 }
 
 function isBlockedIpv4(address: string): boolean {

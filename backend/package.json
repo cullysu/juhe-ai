@@ -106,6 +106,7 @@
     "test:usage-stats-rebuild-shard-cursor": "tsx src/scripts/regression/usage-stats-rebuild-shard-cursor-regression.ts",
     "test:usage-record-byte-batch": "tsx src/scripts/regression/usage-record-byte-batch-regression.ts",
     "test:usage-record-batch-lookup": "tsx src/scripts/regression/usage-record-batch-lookup-regression.ts",
+    "test:usage-record-display-fallback": "tsx src/scripts/regression/usage-record-display-fallback-regression.ts",
     "test:usage-record-snapshot-sanitize-boundary": "tsx src/scripts/regression/usage-record-snapshot-sanitize-boundary-regression.ts",
     "test:usage-stats-shard-fanout-boundary": "tsx src/scripts/regression/usage-stats-shard-fanout-boundary-regression.ts",
     "test:usage-record-list-catalog-window": "tsx src/scripts/regression/usage-record-list-catalog-window-regression.ts",
