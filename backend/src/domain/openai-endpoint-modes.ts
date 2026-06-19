@@ -41,7 +41,7 @@ export function defaultOpenAIEndpointModes(input: OpenAIEndpointModeDefaultConte
     return [...OPENAI_ENDPOINT_MODE_VALUES]
   }
   if (providerCode === OPENAI_COMPATIBLE_PROVIDER_CODE) {
-    return [...OPENAI_CHAT_ENDPOINT_MODES]
+    return [...OPENAI_ENDPOINT_MODE_VALUES]
   }
   return [...OPENAI_ENDPOINT_MODE_VALUES]
 }

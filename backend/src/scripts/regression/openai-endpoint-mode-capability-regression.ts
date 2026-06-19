@@ -12,28 +12,28 @@ import type { UpstreamAccount } from '../../modules/gateway/protocols/openai-v1/
 
 assert.deepEqual(
   defaultOpenAIEndpointModes({ providerCode: 'openai', accountType: 'api_key' }),
-  ['chat_json', 'chat_sse'],
-  '通用 OpenAI 兼容 API Key 默认只启用 Chat JSON/SSE'
+  ['chat_json', 'chat_sse', 'responses_json', 'responses_sse'],
+  'OpenAI-compatible API keys should default to Chat and Responses JSON/SSE'
 )
 assert.deepEqual(
   defaultOpenAIEndpointModes({ providerCode: 'openai', accountType: 'api_key', clientCompatibility: 'codex_responses' }),
   ['chat_json', 'chat_sse', 'responses_json', 'responses_sse'],
-  'Codex Responses 兼容模式默认必须包含 Responses SSE'
+  'Codex Responses compatibility should include Responses SSE by default'
 )
 assert.deepEqual(
   defaultOpenAIEndpointModes({ providerCode: 'gpt', accountType: 'api_key' }),
   ['chat_json', 'chat_sse', 'responses_json', 'responses_sse'],
-  'GPT API Key 默认启用四种 OpenAI v1 形态'
+  'GPT API Key default enables all OpenAI v1 endpoint modes'
 )
 assert.deepEqual(
   defaultOpenAIEndpointModes({ providerCode: 'gpt', accountType: 'oauth' }),
   ['responses_json', 'responses_sse'],
-  'GPT OAuth 默认只启用 Responses JSON/SSE'
+  'GPT OAuth should default to Responses JSON/SSE'
 )
 assert.throws(
   () => normalizeOpenAIEndpointModesForWrite(['chat_json', 'bad_mode'], { providerCode: 'openai', accountType: 'api_key' }),
-  /不支持的能力/,
-  '接口能力写入必须拒绝未知枚举'
+  /bad_mode/,
+  'Endpoint mode writes must reject unknown enum values'
 )
 assert.deepEqual(
   mergeAccountCredentialsForUpdate({
@@ -47,7 +47,7 @@ assert.deepEqual(
     api_key: 'sk-new'
   }).supported_endpoint_modes,
   ['chat_json'],
-  '账户部分凭据更新必须保留已有接口能力限制'
+  'Partial credential updates must preserve existing endpoint mode limits'
 )
 
 const chatOnly = account('chat-only', ['chat_json', 'chat_sse'])
@@ -57,30 +57,30 @@ const jsonOnly = account('json-only', ['chat_json', 'responses_json'])
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/chat/completions', true), [chatOnly, responsesOnly, jsonOnly]).accounts.map((item) => item.id),
   ['chat-only'],
-  'Chat SSE 请求只能命中支持 chat_sse 的账号'
+  'Chat SSE requests should only hit accounts that support chat_sse'
 )
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/responses', false), [chatOnly, responsesOnly, jsonOnly]).accounts.map((item) => item.id),
   ['responses-only', 'json-only'],
-  'Responses JSON 请求只能命中支持 responses_json 的账号'
+  'Responses JSON requests should only hit accounts that support responses_json'
 )
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/embeddings', false), [chatOnly]).accounts.map((item) => item.id),
   ['chat-only'],
-  '未知 OpenAI v1 路径对 API Key 仍保持透传，不受四项能力矩阵拦截'
+  'Unknown OpenAI v1 paths should still pass through for API key accounts'
 )
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/chat/completions', false), [oauthAccount('oauth')]).accounts.map((item) => item.id),
   [],
-  'OAuth 账号仍不能承接 Chat Completions 路径'
+  'OAuth accounts should not handle Chat Completions paths'
 )
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/responses', false), [oauthAccount('oauth-json-only', ['responses_json'])]).accounts.map((item) => item.id),
   [],
-  'OAuth Responses 普通请求按有效 SSE 能力筛选'
+  'OAuth normal Responses requests should be filtered by effective SSE capability'
 )
 
-console.log('OpenAI 接口能力矩阵回归通过：默认值、写入校验和候选账号过滤均符合预期')
+console.log('OpenAI endpoint mode capability regression passed')
 
 function request(path: string, stream: boolean): Request {
   return {
