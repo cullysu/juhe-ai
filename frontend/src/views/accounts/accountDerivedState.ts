@@ -2,7 +2,7 @@ import type { AccountSummary, GroupOptionSummary, ProviderDefinition, ProviderMo
 import { groupLabelForId } from '@/shared/groupLabelCache'
 import { principalLabelForId, type PrincipalSelection } from '@/shared/principalLabelCache'
 import { proxySelectOptionLabel } from '@/shared/proxyLabelCache'
-import { isOpenAICompatibleProviderCode } from '@/shared/providerProtocol'
+import { isOpenAIProtocolProfile, preferredDefaultProviderCode } from '@/shared/providerProtocol'
 import { canManageGroupAccounts, canUseAsTrafficMigrationTarget, type AccountGroupIdResolver } from './accountRules'
 
 export type SelectOption = {
@@ -31,7 +31,7 @@ export function defaultTestModelForAccountSelection(account: AccountSummary | Ac
 }
 
 export function providerDefaultTestModelForAccountSelection(providers: ProviderDefinition[], account: AccountSummary | AccountSummary[] | undefined): string {
-  const providerCode = providerCodeForAccountSelection(account)
+  const providerCode = providerCodeForAccountSelection(account) || preferredDefaultProviderCode(providers)
   if (!providerCode) return ''
   return providers.find((provider) => provider.code === providerCode)?.defaultTestModel?.trim() ?? ''
 }
@@ -43,7 +43,7 @@ export function providerCodeForAccountSelection(account: AccountSummary | Accoun
 
 export function isOpenAICompatibleTestSelection(account: AccountSummary | AccountSummary[] | undefined): boolean {
   const accounts = normalizeAccounts(account)
-  return accounts.length > 0 && accounts.every((item) => isOpenAICompatibleProviderCode(item.providerCode))
+  return accounts.length > 0 && accounts.every((item) => isOpenAIProtocolProfile(item))
 }
 
 function normalizeAccountSupportedModels(account: AccountSummary | AccountSummary[] | undefined): string[] {

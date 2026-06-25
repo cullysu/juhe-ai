@@ -1,8 +1,6 @@
 import { createHmac } from 'node:crypto'
 
 import { runtimeConfig } from '../config/runtime.js'
-import { isOpenAICompatibleProviderCode } from '../domain/provider-protocol.js'
-
 export type AccountApiKeyStrategy = 'round_robin' | 'weighted_round_robin'
 export type AccountApiKeyRuntimeStatus = 'active' | 'temporary_unavailable' | 'rate_limited' | 'error' | 'disabled'
 
@@ -90,9 +88,7 @@ export function isAccountApiKeyPoolIsolationEnabled(input: {
   const keyCount = input.credentials
     ? accountApiKeyEntries(input.credentials).length
     : Array.isArray(input.apiKeys) ? new Set(input.apiKeys.map((key) => key.trim()).filter(Boolean)).size : 0
-  return input.type === 'api_key'
-    && isOpenAICompatibleProviderCode(input.providerCode)
-    && keyCount > 1
+  return input.type === 'api_key' && keyCount > 1
 }
 
 export function fingerprintAccountApiKey(key: string): string {

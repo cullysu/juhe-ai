@@ -63,7 +63,7 @@ type GptAccountType = 'api_key' | 'oauth'
 - Responses
 - Chat
 
-账户级接口能力限制保存于凭据的非敏感字段 `credentials.supported_endpoint_modes`，用于表达当前上游实际支持的 OpenAI v1 请求形态：`chat_json`、`chat_sse`、`responses_json`、`responses_sse`。网关候选账号筛选和账户测试都必须遵守该矩阵；例如只支持 `chat_json/chat_sse` 的通用 OpenAI-compatible 上游不会参与 `/v1/responses` 调度，手动测试也会改用 `/v1/chat/completions`。省略该字段时，通用 `openai` API Key 默认启用 Chat JSON/SSE，GPT API Key 默认四项全开，GPT OAuth 默认 Responses JSON/SSE。`clientCompatibility = codex_responses` 必须启用 `responses_sse`；OAuth 账户只能选择 Responses JSON/SSE，不支持 Chat Completions。
+账户级接口能力限制保存于凭据的非敏感字段 `credentials.supported_endpoint_modes`，用于表达当前上游实际支持的 OpenAI v1 请求形态：`chat_json`、`chat_sse`、`responses_json`、`responses_sse`。网关候选账号筛选和账户测试都必须遵守该矩阵；例如只支持 `chat_json/chat_sse` 的通用 OpenAI-compatible 上游不会参与 `/v1/responses` 调度，手动测试也会改用 `/v1/chat/completions`。省略该字段时，通用 `openai` API Key 默认四项全开，GPT API Key 默认四项全开，GPT OAuth 默认 Responses JSON/SSE。`clientCompatibility = codex_responses` 必须启用 `responses_sse`；OAuth 账户只能选择 Responses JSON/SSE，不支持 Chat Completions。
 
 默认测试模型：
 

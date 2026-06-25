@@ -4,6 +4,8 @@ import {
   OPENAI_COMPATIBLE_PROVIDER_CODE,
   GPT_OPENAI_V1_PROFILE_ID,
   GPT_VENDOR_CODE,
+  MD_OPENAI_V1_PROFILE_ID,
+  MD_VENDOR_CODE,
   OPENAI_CHAT_COMPLETIONS_FAMILY,
   OPENAI_PROTOCOL_CODE,
   OPENAI_PROTOCOL_VERSION,
@@ -77,7 +79,40 @@ export const GPT_PROVIDER: ProviderDefinition = {
   ]
 }
 
-export const FALLBACK_PROVIDERS: ProviderDefinition[] = [GPT_PROVIDER, OPENAI_COMPATIBLE_PROVIDER]
+export const MD_PROVIDER: ProviderDefinition = {
+  id: MD_VENDOR_CODE,
+  code: MD_VENDOR_CODE,
+  name: 'MD',
+  parentCode: OPENAI_COMPATIBLE_PROVIDER_CODE,
+  enabled: true,
+  defaultProtocolProfileId: MD_OPENAI_V1_PROFILE_ID,
+  protocolCode: OPENAI_PROTOCOL_CODE,
+  protocolVersion: OPENAI_PROTOCOL_VERSION,
+  baseUrl: 'https://api.openai.com/v1',
+  defaultTestModel: 'gpt-5.5',
+  accountTypes: ['api_key'],
+  capabilities: ['responses', 'chat', 'passthrough'],
+  protocolProfiles: [
+    {
+      id: MD_OPENAI_V1_PROFILE_ID,
+      providerCode: MD_VENDOR_CODE,
+      name: 'MD / OpenAI v1',
+      enabled: true,
+      protocolCode: OPENAI_PROTOCOL_CODE,
+      protocolVersion: OPENAI_PROTOCOL_VERSION,
+      baseUrl: 'https://api.openai.com/v1',
+      defaultTestModel: 'gpt-5.5',
+      accountTypes: ['api_key'],
+      capabilities: ['responses', 'chat', 'passthrough'],
+      endpointFamilies: [
+        { code: OPENAI_RESPONSES_FAMILY, name: 'Responses' },
+        { code: OPENAI_CHAT_COMPLETIONS_FAMILY, name: 'Chat Completions' }
+      ]
+    }
+  ]
+}
+
+export const FALLBACK_PROVIDERS: ProviderDefinition[] = [GPT_PROVIDER, OPENAI_COMPATIBLE_PROVIDER, MD_PROVIDER]
 
 export const DEFAULT_ACCOUNT_CONCURRENCY_LIMIT = 20
 export const ACCOUNT_PAGE_SIZE = 20

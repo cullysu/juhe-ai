@@ -230,7 +230,7 @@ export function useAccountEditForm(options: UseAccountEditFormOptions) {
     setFormGroup(nextGroup ? { id: nextGroup.id, name: nextGroup.name } : undefined)
   }
 
-  function openCreate() {
+  async function openCreate() {
     nextFormOpenRequestToken()
     if (options.isManagementView.value && !options.accountScopeParams.value?.systemAccountId) {
       message.warning('请先在右侧选择目标系统账户，再创建 AI 账户')
@@ -241,7 +241,9 @@ export function useAccountEditForm(options: UseAccountEditFormOptions) {
     editingScheduleFingerprint.value = undefined
     cloningScheduleFingerprint.value = undefined
     creatingAccountScopeParams.value = undefined
-    void options.loadAccountOptions(options.accountScopeParams.value?.systemAccountId)
+    await options.loadAccountOptions(options.accountScopeParams.value?.systemAccountId).catch((error) => {
+      console.error(error)
+    })
     resetForm('', '')
     void options.loadGroupOptions('', true, {
       providerCode: form.providerCode,
@@ -306,6 +308,9 @@ export function useAccountEditForm(options: UseAccountEditFormOptions) {
     const editScopeParams = accountOperationScopeParams(account, options.accountScopeParams.value)
     const sourceAccount = await loadAccountDetailForForm(account.id, editScopeParams, '加载账户详情失败')
     if (!sourceAccount || !isCurrentFormOpenRequest(requestToken)) return
+    await options.loadAccountOptions(editScopeParams?.systemAccountId).catch((error) => {
+      console.error(error)
+    })
     const defaults = defaultForm(sourceAccount.providerCode, sourceAccount.type, sourceAccount.providerProtocolProfileId)
     const selectedGroup = sourceAccount.boundGroupId
       ? groupSelectionForId(sourceAccount.boundGroupId, sourceAccount.boundGroupName)
@@ -328,7 +333,6 @@ export function useAccountEditForm(options: UseAccountEditFormOptions) {
     editingAccountDetail.value = sourceAccount
     cloningSourceId.value = undefined
     creatingAccountScopeParams.value = undefined
-    void options.loadAccountOptions(editScopeParams?.systemAccountId)
     Object.assign(form, formLoad.patch)
     editingScheduleFingerprint.value = formLoad.scheduleFingerprint
     cloningScheduleFingerprint.value = undefined
@@ -354,12 +358,14 @@ export function useAccountEditForm(options: UseAccountEditFormOptions) {
     }
     const sourceAccount = await loadAccountDetailForForm(account.id, cloneScopeParams, '加载克隆账户配置失败')
     if (!sourceAccount || !isCurrentFormOpenRequest(requestToken)) return
+    await options.loadAccountOptions(cloneScopeParams?.systemAccountId).catch((error) => {
+      console.error(error)
+    })
     editingId.value = undefined
     editingAccountDetail.value = undefined
     editingScheduleFingerprint.value = undefined
     cloningSourceId.value = sourceAccount.id
     creatingAccountScopeParams.value = cloneScopeParams
-    void options.loadAccountOptions(cloneScopeParams?.systemAccountId)
     const defaults = defaultForm(sourceAccount.providerCode, sourceAccount.type, sourceAccount.providerProtocolProfileId)
     const selectedGroup = sourceAccount.boundGroupId
       ? groupSelectionForId(sourceAccount.boundGroupId, sourceAccount.boundGroupName)

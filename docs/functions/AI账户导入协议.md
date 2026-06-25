@@ -85,7 +85,7 @@ AI 账户导入只支持项目自定义 JSON 协议，不直接兼容 sub2api、
       "credentials": {
         "api_key": "sk-xxx",
         "base_url": "https://api.openai.com/v1",
-        "supported_endpoint_modes": ["chat_json", "chat_sse"]
+        "supported_endpoint_modes": ["chat_json", "chat_sse", "responses_json", "responses_sse"]
       },
       "notes": "通用 OpenAI-compatible API Key 账号"
     },
@@ -170,7 +170,7 @@ API Key 账户：
 {
   "api_key": "sk-xxx",
   "base_url": "https://api.openai.com/v1",
-  "supported_endpoint_modes": ["chat_json", "chat_sse"]
+  "supported_endpoint_modes": ["chat_json", "chat_sse", "responses_json", "responses_sse"]
 }
 ```
 
@@ -194,7 +194,7 @@ OAuth 账户：
 - `providerCode = gpt` 且 `type = api_key` 时必须有 `credentials.api_key`。
 - `providerCode = gpt` 且 `type = oauth` 时必须有 `credentials.refresh_token` 或 `credentials.access_token`。
 - `credentials.base_url` 必须显式填写，不从供应商配置自动补值。
-- `credentials.supported_endpoint_modes` 可限制 OpenAI v1 接口能力，枚举值为 `chat_json`、`chat_sse`、`responses_json`、`responses_sse`；省略时通用 `openai` API Key 默认 Chat JSON/SSE，GPT API Key 默认四项全开，GPT OAuth 默认 Responses JSON/SSE。
+- `credentials.supported_endpoint_modes` 可限制 OpenAI v1 接口能力，枚举值为 `chat_json`、`chat_sse`、`responses_json`、`responses_sse`；省略时通用 `openai` API Key 默认四项全开，GPT API Key 默认四项全开，GPT OAuth 默认 Responses JSON/SSE。
 - `clientCompatibility = codex_responses` 时必须启用 `credentials.supported_endpoint_modes` 中的 `responses_sse`。
 - `credentials` 只接受当前账户类型支持的字段；未知字段会在预览阶段标记为失败。
 - 凭据属于敏感数据，只在受控账户凭据路径保存和展示。

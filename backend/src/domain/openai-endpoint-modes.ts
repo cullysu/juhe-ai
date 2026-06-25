@@ -1,10 +1,7 @@
 import type { AccountClientCompatibility, AccountSupportedEndpointMode } from './types.js'
 import {
-  GPT_VENDOR_CODE,
   OPENAI_CHAT_COMPLETIONS_FAMILY,
-  OPENAI_COMPATIBLE_PROVIDER_CODE,
   OPENAI_RESPONSES_FAMILY,
-  normalizeProviderToken
 } from './provider-protocol.js'
 
 export const OPENAI_ENDPOINT_MODE_VALUES: readonly AccountSupportedEndpointMode[] = [
@@ -35,13 +32,6 @@ export interface OpenAIEndpointModeDefaultContext {
 export function defaultOpenAIEndpointModes(input: OpenAIEndpointModeDefaultContext): AccountSupportedEndpointMode[] {
   if (input.accountType === 'oauth') {
     return [...OPENAI_RESPONSES_ENDPOINT_MODES]
-  }
-  const providerCode = normalizeProviderToken(input.providerCode)
-  if (providerCode === GPT_VENDOR_CODE || input.clientCompatibility === 'codex_responses') {
-    return [...OPENAI_ENDPOINT_MODE_VALUES]
-  }
-  if (providerCode === OPENAI_COMPATIBLE_PROVIDER_CODE) {
-    return [...OPENAI_ENDPOINT_MODE_VALUES]
   }
   return [...OPENAI_ENDPOINT_MODE_VALUES]
 }

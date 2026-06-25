@@ -232,7 +232,7 @@ export async function prepareOpenAIGatewayDispatchAccounts(input: {
   }
   return {
     ...readyPreparation,
-    codexTurnAccountAvoidanceApplied: codexTurnAvoidance.thresholdReached,
+    codexTurnAccountAvoidanceApplied: codexTurnAvoidance.applied,
     codexTurnAvoidedAccountIds: codexTurnAvoidance.avoidedAccountIds
   }
 }

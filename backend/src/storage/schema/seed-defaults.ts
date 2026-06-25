@@ -13,6 +13,7 @@ import {
   hashExternalIntegrationSourceTokenValue
 } from '../external-integration-source-constants.js'
 import { defaultRequestQuotaHourlyWindowHours } from '../request-quota-limits.js'
+import { ensureDefaultGroupsForAllSystemAccounts } from '../default-group.repository.js'
 import {
   DEFAULT_BUILT_IN_GROUPS,
   DEFAULT_GLOBAL_SETTINGS,
@@ -21,6 +22,8 @@ import {
   OPENAI_COMPATIBLE_PROVIDER_SEED,
   GPT_OPENAI_V1_PROFILE_SEED,
   GPT_PROVIDER_SEED,
+  MD_OPENAI_V1_PROFILE_SEED,
+  MD_PROVIDER_SEED,
   OPENAI_PROTOCOL_ENDPOINT_FAMILY_SEEDS,
   OPENAI_PROTOCOL_SEED
 } from '../schema-defaults.js'
@@ -69,7 +72,7 @@ export function seedDefaults(database: DatabaseSync): void {
       id, code, name, description, parent_code, enabled, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `)
-  for (const provider of [OPENAI_COMPATIBLE_PROVIDER_SEED, GPT_PROVIDER_SEED]) {
+  for (const provider of [OPENAI_COMPATIBLE_PROVIDER_SEED, GPT_PROVIDER_SEED, MD_PROVIDER_SEED]) {
     providerStatement.run(
       provider.id,
       provider.code,
@@ -124,7 +127,7 @@ export function seedDefaults(database: DatabaseSync): void {
       base_url, default_test_model, account_types_json, capabilities_json, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
-  for (const profile of [OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_SEED, GPT_OPENAI_V1_PROFILE_SEED]) {
+  for (const profile of [OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_SEED, GPT_OPENAI_V1_PROFILE_SEED, MD_OPENAI_V1_PROFILE_SEED]) {
     profileStatement.run(
       profile.id,
       profile.providerCode,
@@ -147,13 +150,14 @@ export function seedDefaults(database: DatabaseSync): void {
       profile_id, family_code, enabled, capabilities_json, created_at, updated_at
     ) VALUES (?, ?, 1, '[]', ?, ?)
   `)
-  for (const profile of [OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_SEED, GPT_OPENAI_V1_PROFILE_SEED]) {
+  for (const profile of [OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_SEED, GPT_OPENAI_V1_PROFILE_SEED, MD_OPENAI_V1_PROFILE_SEED]) {
     for (const familyCode of profile.endpointFamilies) {
       profileFamilyStatement.run(profile.id, familyCode, now, now)
     }
   }
 
   seedAdminDefaultBuiltInGroups(database, now)
+  ensureDefaultGroupsForAllSystemAccounts(now, database)
   seedBuiltInExternalIntegrationTestToken(database, now)
 
   const statement = database.prepare(`

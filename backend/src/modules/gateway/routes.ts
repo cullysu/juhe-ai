@@ -886,12 +886,14 @@ function sendCodexSwitchProbeFailedResponse(input: {
 }): void {
   const message = codexSwitchProbeFailedMessage(input.probes)
   const failureEvent = writeGatewayStreamFailureEvent(input.res, message, 'codex_switch_probe_failed')
+  const lastProbeAccountId = input.probes.at(-1)?.accountId
   recordGatewayFailure(input.req, input.usageContext, {
     statusCode: 200,
     startedAt: input.startedAt,
     responsePayload: gatewayErrorPayload(message, 'server_error', 'codex_switch_probe_failed'),
     errorMessage: message,
     errorCode: 'codex_switch_probe_failed',
+    accountId: lastProbeAccountId,
     responseSnapshot: buildUsageResponseSnapshot({
       statusCode: 200,
       headers: {
@@ -932,7 +934,8 @@ function sendCodexSwitchProbeFailedResponse(input: {
     responsePartType: 'gateway_response',
     errorPhase: 'stream',
     errorCode: 'codex_switch_probe_failed',
-    errorMessage: message
+    errorMessage: message,
+    accountId: lastProbeAccountId
   })
 }
 

@@ -1,4 +1,4 @@
-import { GPT_VENDOR_CODE } from '@/shared/providerProtocol'
+import { GPT_VENDOR_CODE, OPENAI_COMPATIBLE_PROVIDER_CODE } from '@/shared/providerProtocol'
 import { accountImportProtocolMarkdown, aiConversionPrompt, importTemplate } from '../../views/accounts/accountImportProtocol'
 
 interface ImportTemplateAccount {
@@ -27,8 +27,8 @@ const apiKeyAccount = template.accounts?.find((account) => account.type === 'api
 const oauthAccount = template.accounts?.find((account) => account.type === 'oauth')
 assertDefined(apiKeyAccount, '导入模板应包含 API Key 账号示例')
 assertDefined(oauthAccount, '导入模板应包含 OAuth 账号示例')
-assertEqual(apiKeyAccount.providerCode, GPT_VENDOR_CODE, 'API Key 示例应继续使用 GPT 供应商')
-assertEqual(apiKeyAccount.clientCompatibility, 'codex_responses', 'API Key 示例应声明 Codex Responses 兼容模式')
+assertEqual(apiKeyAccount.providerCode, OPENAI_COMPATIBLE_PROVIDER_CODE, 'API Key 示例应默认使用通用 OpenAI-compatible 供应商')
+assertEqual(apiKeyAccount.clientCompatibility, 'openai_standard', 'API Key 示例应默认声明 OpenAI 标准兼容模式')
 assertEqual(oauthAccount.providerCode, GPT_VENDOR_CODE, 'OAuth 示例应继续使用 GPT 供应商')
 assertEqual(oauthAccount.clientCompatibility, 'codex_responses', 'OAuth 示例应声明 Codex Responses 兼容模式')
 assertEqual(typeof apiKeyAccount.credentials?.api_key, 'string', 'API Key 示例必须保留 credentials.api_key')
@@ -44,7 +44,7 @@ assertMatch(aiConversionPrompt, /不要编造来源数据里不存在的 token/,
 assertMatch(accountImportProtocolMarkdown, /# juhe-ai AI 账户导入协议 v1/, '协议 Markdown 应继续保留标题')
 assertMatch(accountImportProtocolMarkdown, /```json[\s\S]+juhe-ai-account-import[\s\S]+```/, '协议 Markdown 应继续包含 JSON 示例代码块')
 assertTrue(accountImportProtocolMarkdown.includes(importTemplate), '协议 Markdown 的完整示例应继续嵌入导入模板')
-assertMatch(accountImportProtocolMarkdown, /当前默认使用 `providerCode: "gpt"`/, '协议 Markdown 应继续说明默认 GPT providerCode')
+assertMatch(accountImportProtocolMarkdown, /当前默认使用 `providerCode: "openai"`/, '协议 Markdown 应说明默认通用 OpenAI-compatible providerCode')
 assertMatch(accountImportProtocolMarkdown, /clientCompatibility/, '协议 Markdown 应说明客户端兼容模式字段')
 assertMatch(accountImportProtocolMarkdown, /supported_endpoint_modes/, '协议 Markdown 应说明接口能力限制字段')
 assertMatch(accountImportProtocolMarkdown, /`proxyRef` 和 `proxyProfileId` 不能同时填写/, '协议 Markdown 应继续说明代理字段互斥')

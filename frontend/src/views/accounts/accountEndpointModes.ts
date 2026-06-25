@@ -1,8 +1,3 @@
-import {
-  GPT_VENDOR_CODE,
-  OPENAI_COMPATIBLE_PROVIDER_CODE,
-  normalizeProviderToken
-} from '@/shared/providerProtocol'
 import type { AccountClientCompatibility, AccountSupportedEndpointMode, AccountType } from '@/types/domain'
 
 export const accountEndpointModeOptions: Array<{ label: string; value: AccountSupportedEndpointMode }> = [
@@ -13,7 +8,6 @@ export const accountEndpointModeOptions: Array<{ label: string; value: AccountSu
 ]
 
 const allEndpointModes = accountEndpointModeOptions.map((item) => item.value)
-const chatEndpointModes: AccountSupportedEndpointMode[] = ['chat_json', 'chat_sse']
 const responsesEndpointModes: AccountSupportedEndpointMode[] = ['responses_json', 'responses_sse']
 
 export function defaultAccountEndpointModes(
@@ -22,9 +16,6 @@ export function defaultAccountEndpointModes(
   clientCompatibility?: AccountClientCompatibility
 ): AccountSupportedEndpointMode[] {
   if (type === 'oauth') return [...responsesEndpointModes]
-  const provider = normalizeProviderToken(providerCode)
-  if (provider === GPT_VENDOR_CODE || clientCompatibility === 'codex_responses') return [...allEndpointModes]
-  if (provider === OPENAI_COMPATIBLE_PROVIDER_CODE) return [...chatEndpointModes]
   return [...allEndpointModes]
 }
 

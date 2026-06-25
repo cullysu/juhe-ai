@@ -1,4 +1,4 @@
-import { GPT_VENDOR_CODE } from '@/shared/providerProtocol'
+import { GPT_VENDOR_CODE, OPENAI_COMPATIBLE_PROVIDER_CODE } from '@/shared/providerProtocol'
 
 export const importTemplate = JSON.stringify({
   type: 'juhe-ai-account-import',
@@ -17,13 +17,13 @@ export const importTemplate = JSON.stringify({
   ],
   accounts: [
     {
-      ref: 'gpt-key-001',
-      name: 'GPT API Key 账号 1',
-      providerCode: GPT_VENDOR_CODE,
-      clientCompatibility: 'codex_responses',
+      ref: 'openai-key-001',
+      name: 'OpenAI 兼容 API Key 账号 1',
+      providerCode: OPENAI_COMPATIBLE_PROVIDER_CODE,
+      clientCompatibility: 'openai_standard',
       type: 'api_key',
       status: 'active',
-      groupName: '默认 GPT 分组',
+      groupName: '默认 OpenAI 兼容 分组',
       concurrencyLimit: 3,
       priority: 50,
       proxyRef: 'proxy-hk-1',
@@ -32,7 +32,7 @@ export const importTemplate = JSON.stringify({
         base_url: 'https://api.openai.com/v1',
         supported_endpoint_modes: ['chat_json', 'chat_sse', 'responses_json', 'responses_sse']
       },
-      notes: 'GPT API Key 账号'
+      notes: 'OpenAI-compatible API Key 账号'
     },
     {
       ref: 'gpt-oauth-001',
@@ -85,7 +85,7 @@ export const accountImportProtocolMarkdown = [
   '- 字段名严格使用本协议定义，不要把 `providerCode` 改成 `provider_code`，也不要把 `api_key` 改成 `apiKey`。',
   '- 顶层 `type` 固定为 `juhe-ai-account-import`，`version` 固定为数字 `1`。',
   '- `accounts` 至少 1 条；每个账户必须显式填写 `name`、`providerCode`、`type`、`status`、`credentials`，以及 `groupId` 或 `groupName`。',
-  '- 当前默认使用 `providerCode: "gpt"`；确需通用 OpenAI-compatible 供应商时才填 `openai`。系统会按供应商自动匹配内部协议配置；通用 `openai` 供应商只填 `api_key`，`gpt` 供应商可填 `api_key` 或 `oauth`。',
+  '- 当前默认使用 `providerCode: "openai"` 作为通用 OpenAI-compatible API Key 账户；如果源数据明确是 GPT 专属 OAuth 账户，再使用 `gpt`；如果源数据明确是其他 OpenAI-compatible 供应商（例如 `md`），保留其实际 `providerCode`。系统会按供应商自动匹配内部协议配置；`openai` 供应商只填 `api_key`，`gpt` 供应商可填 `api_key` 或 `oauth`。',
   '- 不确定是否可立即调度时，`status` 填 `disabled`，不要默认填 `active`。',
   '- 不要编造缺失的 token、API Key、邮箱、账号 ID、代理密码或模型列表；不确定的信息写入 `notes`。',
   '- 外部来源字段如果没有本协议对应字段，不要塞进 `credentials`，可以整理到 `notes`。',
@@ -152,7 +152,7 @@ export const accountImportProtocolMarkdown = [
   '{',
   '  "api_key": "sk-xxx",',
   '  "base_url": "https://api.openai.com/v1",',
-  '  "supported_endpoint_modes": ["chat_json", "chat_sse"]',
+  '  "supported_endpoint_modes": ["chat_json", "chat_sse", "responses_json", "responses_sse"]',
   '}',
   '```',
   '',
@@ -175,7 +175,7 @@ export const accountImportProtocolMarkdown = [
   '- `api_key` 账户必须有 `credentials.api_key`。',
   '- `oauth` 账户必须有 `credentials.refresh_token` 或 `credentials.access_token`。',
   '- `credentials.base_url` 必须显式填写服务根地址或 `/v1` 版本根地址，通常为 `https://api.openai.com/v1`；不要填写 `/responses` 等具体接口路径。',
-  '- `credentials.supported_endpoint_modes` 可限制接口能力，枚举为 `chat_json`、`chat_sse`、`responses_json`、`responses_sse`；省略时通用 `openai` API Key 默认 Chat JSON/SSE，GPT API Key 默认四项全开，GPT OAuth 默认 Responses JSON/SSE。',
+  '- `credentials.supported_endpoint_modes` 可限制接口能力，枚举为 `chat_json`、`chat_sse`、`responses_json`、`responses_sse`；省略时通用 `openai` API Key 默认四项全开，`md` 等 OpenAI-compatible API Key 也默认四项全开，GPT API Key 默认四项全开，GPT OAuth 默认 Responses JSON/SSE。',
   '- 字段名保持 snake_case，不要改成 camelCase。',
   '- 不要编造缺失 token，不确定的信息写入 `notes`。',
   '',

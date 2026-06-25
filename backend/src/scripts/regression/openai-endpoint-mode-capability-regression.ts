@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import type { Request } from 'express'
 
 import {
+  accountSupportsOpenAIEndpointMode,
   defaultOpenAIEndpointModes,
   normalizeOpenAIEndpointModesForWrite
 } from '../../domain/openai-endpoint-modes.js'
@@ -14,6 +15,20 @@ assert.deepEqual(
   defaultOpenAIEndpointModes({ providerCode: 'openai', accountType: 'api_key' }),
   ['chat_json', 'chat_sse', 'responses_json', 'responses_sse'],
   'OpenAI-compatible API keys should default to Chat and Responses JSON/SSE'
+)
+assert.equal(
+  accountSupportsOpenAIEndpointMode({
+    mode: 'responses_sse',
+    providerCode: 'openai',
+    accountType: 'api_key',
+    clientCompatibility: 'openai_standard',
+    credentials: {
+      api_key: 'sk-openai-compatible-default',
+      base_url: 'https://example.com/v1'
+    }
+  }),
+  true,
+  'OpenAI-compatible API keys should inherit Responses SSE support from backend defaults'
 )
 assert.deepEqual(
   defaultOpenAIEndpointModes({ providerCode: 'openai', accountType: 'api_key', clientCompatibility: 'codex_responses' }),
@@ -53,6 +68,7 @@ assert.deepEqual(
 const chatOnly = account('chat-only', ['chat_json', 'chat_sse'])
 const responsesOnly = account('responses-only', ['responses_json', 'responses_sse'])
 const jsonOnly = account('json-only', ['chat_json', 'responses_json'])
+const openAICompatibleDefault = openAICompatibleAccount('openai-compatible-default')
 
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/chat/completions', true), [chatOnly, responsesOnly, jsonOnly]).accounts.map((item) => item.id),
@@ -63,6 +79,11 @@ assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/responses', false), [chatOnly, responsesOnly, jsonOnly]).accounts.map((item) => item.id),
   ['responses-only', 'json-only'],
   'Responses JSON requests should only hit accounts that support responses_json'
+)
+assert.deepEqual(
+  filterGatewayAccountsByRequestCapability(request('/v1/responses', true), [openAICompatibleDefault]).accounts.map((item) => item.id),
+  ['openai-compatible-default'],
+  'OpenAI-compatible API key Responses SSE requests should survive capability filtering without explicit stored modes'
 )
 assert.deepEqual(
   filterGatewayAccountsByRequestCapability(request('/v1/embeddings', false), [chatOnly]).accounts.map((item) => item.id),
@@ -113,5 +134,22 @@ function oauthAccount(id: string, modes: AccountSupportedEndpointMode[] = ['resp
     providerCode: 'gpt',
     providerProtocolProfileId: 'profile_gpt_openai_v1',
     clientCompatibility: 'codex_responses'
+  } as unknown as UpstreamAccount
+}
+
+function openAICompatibleAccount(id: string): UpstreamAccount {
+  return {
+    id,
+    type: 'api_key',
+    providerCode: 'openai',
+    providerProtocolProfileId: 'profile_openai_openai_v1',
+    protocolCode: 'openai',
+    protocolVersion: 'v1',
+    baseUrl: 'https://example.com/v1',
+    credentials: {
+      api_key: 'sk-openai-compatible-default',
+      base_url: 'https://example.com/v1'
+    },
+    clientCompatibility: 'openai_standard'
   } as unknown as UpstreamAccount
 }

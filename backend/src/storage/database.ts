@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { runtimeConfig } from '../config/runtime.js'
 import { errorLogFields, logger } from '../shared/logger.js'
 import { applyBusinessSchema, applyDatasetSchema, applyStatsSchema, seedDefaults } from './schema.js'
+import { applyLegacyOpenAIEndpointModeBackfill } from './openai-endpoint-mode-backfill.repository.js'
 import { sqliteBusyTimeoutMs } from './sqlite-config.js'
 import { closeUsageRecordShardDatabases } from './usage-record-shards.js'
 
@@ -27,6 +28,7 @@ export function getBusinessDatabase(): DatabaseSync {
   configureDatabase(businessDatabase)
   applyBusinessSchema(businessDatabase)
   seedDefaults(businessDatabase)
+  applyLegacyOpenAIEndpointModeBackfill(businessDatabase)
   return businessDatabase
 }
 

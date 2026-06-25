@@ -1,6 +1,8 @@
 import {
   GPT_OPENAI_V1_PROFILE_ID,
   GPT_VENDOR_CODE,
+  MD_OPENAI_V1_PROFILE_ID,
+  MD_VENDOR_CODE,
   OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_ID,
   OPENAI_COMPATIBLE_PROVIDER_CODE,
   OPENAI_CHAT_COMPLETIONS_FAMILY,
@@ -47,6 +49,15 @@ export const GPT_PROVIDER_SEED = {
   name: 'GPT',
   parentCode: OPENAI_COMPATIBLE_PROVIDER_CODE,
   description: 'GPT 官方供应商，继承通用 OpenAI-compatible 能力，并启用 OAuth、Codex Responses 等 GPT 专属能力',
+  enabled: 1
+} as const
+
+export const MD_PROVIDER_SEED = {
+  id: MD_VENDOR_CODE,
+  code: MD_VENDOR_CODE,
+  name: 'MD',
+  parentCode: OPENAI_COMPATIBLE_PROVIDER_CODE,
+  description: 'MD OpenAI-compatible 供应商，继承通用 OpenAI v1 能力，提供 API Key 透传使用',
   enabled: 1
 } as const
 
@@ -101,6 +112,21 @@ export const GPT_OPENAI_V1_PROFILE_SEED = {
   defaultTestModel: 'gpt-5.5',
   accountTypes: ['oauth', 'api_key'],
   capabilities: ['responses', 'chat'],
+  endpointFamilies: [OPENAI_CHAT_COMPLETIONS_FAMILY, OPENAI_RESPONSES_FAMILY]
+} as const
+
+export const MD_OPENAI_V1_PROFILE_SEED = {
+  id: MD_OPENAI_V1_PROFILE_ID,
+  providerCode: MD_VENDOR_CODE,
+  name: 'MD / OpenAI v1',
+  description: 'MD 供应商的 OpenAI v1 协议档案，支持 API Key 透传、模型目录与通用协议策略',
+  enabled: 1,
+  protocolCode: OPENAI_PROTOCOL_CODE,
+  protocolVersion: OPENAI_PROTOCOL_VERSION,
+  baseUrl: 'https://api.openai.com/v1',
+  defaultTestModel: 'gpt-5.5',
+  accountTypes: ['api_key'],
+  capabilities: ['responses', 'chat', 'passthrough'],
   endpointFamilies: [OPENAI_CHAT_COMPLETIONS_FAMILY, OPENAI_RESPONSES_FAMILY]
 } as const
 

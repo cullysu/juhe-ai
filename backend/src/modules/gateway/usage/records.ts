@@ -296,6 +296,7 @@ export function recordGatewayFailure(
     errorMessage?: string
     errorCode?: string
     responseSnapshot?: ReturnType<typeof buildUsageResponseSnapshot>
+    accountId?: string
   }
 ): void {
   const errorMessage = input.errorMessage ?? input.responsePayload.error.message
@@ -320,6 +321,7 @@ export function recordGatewayFailure(
     systemAccountId: usageContext.systemAccountId,
     apiKeyId: usageContext.apiKeyId,
     groupId: usageContext.groupId,
+    accountId: input.accountId,
     groupOwnerSystemAccountId: usageContext.groupOwnerSystemAccountId,
     groupAccessType: usageContext.groupAccessType,
     groupAuthorizationId: usageContext.groupAuthorizationId,

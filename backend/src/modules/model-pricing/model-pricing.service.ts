@@ -1,5 +1,5 @@
 import { openAIModelPricingData } from './openai-model-pricing.data.js'
-import { isOpenAICompatibleProviderCode, normalizeProviderToken } from '../../domain/provider-protocol.js'
+import { normalizeProviderToken } from '../../domain/provider-protocol.js'
 
 export type ProviderModelApiProtocol = 'chat_completions' | 'responses' | 'completions' | 'images' | 'audio' | 'realtime'
 
@@ -473,7 +473,7 @@ function hasModelShutdown(item: RawModelPricing): boolean {
 }
 
 function isOpenAIProvider(providerCode: string): boolean {
-  return isOpenAICompatibleProviderCode(providerCode)
+  return Boolean(normalizeProviderToken(providerCode))
 }
 
 function normalizeModel(value: string): string {
