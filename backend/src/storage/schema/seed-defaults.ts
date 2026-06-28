@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync, SQLInputValue } from 'node:sqlite'
 
 import { encryptJson, hashPassword } from '../crypto.js'
 import {
@@ -67,23 +67,7 @@ export function seedDefaults(database: DatabaseSync): void {
     quotaWindowStatement.run(hours, now, now)
   }
 
-  const providerStatement = database.prepare(`
-    INSERT OR IGNORE INTO providers (
-      id, code, name, description, parent_code, enabled, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `)
-  for (const provider of [OPENAI_COMPATIBLE_PROVIDER_SEED, GPT_PROVIDER_SEED, MD_PROVIDER_SEED]) {
-    providerStatement.run(
-      provider.id,
-      provider.code,
-      provider.name,
-      provider.description,
-      provider.parentCode,
-      provider.enabled,
-      now,
-      now
-    )
-  }
+  seedBuiltInProviders(database, now)
 
   database
     .prepare(`
@@ -167,6 +151,46 @@ export function seedDefaults(database: DatabaseSync): void {
 
   for (const [key, value] of DEFAULT_SYSTEM_SETTINGS) {
     statement.run('sys_admin', key, JSON.stringify(value), now)
+  }
+}
+
+function seedBuiltInProviders(database: DatabaseSync, timestamp: string): void {
+  const providerColumns = new Set(
+    (
+      database.prepare('PRAGMA table_info(providers)').all() as Array<{ name?: string }>
+    ).map((column) => column.name).filter((name): name is string => Boolean(name))
+  )
+  const providers = [
+    { provider: OPENAI_COMPATIBLE_PROVIDER_SEED, profile: OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_SEED },
+    { provider: GPT_PROVIDER_SEED, profile: GPT_OPENAI_V1_PROFILE_SEED },
+    { provider: MD_PROVIDER_SEED, profile: MD_OPENAI_V1_PROFILE_SEED }
+  ]
+
+  for (const { provider, profile } of providers) {
+    const valuesByColumn: Record<string, SQLInputValue | null> = {
+      id: provider.id,
+      code: provider.code,
+      name: provider.name,
+      description: provider.description,
+      parent_code: provider.parentCode,
+      enabled: provider.enabled,
+      created_at: timestamp,
+      updated_at: timestamp,
+      base_url: profile.baseUrl,
+      default_test_model: profile.defaultTestModel,
+      account_types_json: JSON.stringify(profile.accountTypes),
+      capabilities_json: JSON.stringify(profile.capabilities),
+      protocol_code: profile.protocolCode,
+      protocol_version: profile.protocolVersion
+    }
+    const columns = Object.keys(valuesByColumn).filter((column) => providerColumns.has(column))
+    const placeholders = columns.map(() => '?').join(', ')
+    database
+      .prepare(`
+        INSERT OR IGNORE INTO providers (${columns.join(', ')})
+        VALUES (${placeholders})
+      `)
+      .run(...columns.map((column) => valuesByColumn[column]))
   }
 }
 
