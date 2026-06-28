@@ -136,6 +136,7 @@ export function listGatewayDispatchCandidateRows(
       WHERE group_accounts.group_id = ?
         AND group_accounts.system_account_id = ?
         AND group_accounts.enabled = 1
+        AND accounts.provider_code = ?
         AND accounts.provider_protocol_profile_id = ?
         AND accounts.deleted_at IS NULL
         AND accounts.status = 'active'
@@ -147,6 +148,7 @@ export function listGatewayDispatchCandidateRows(
           OR (
             accounts.authorization_instance_authorization_id IS NOT NULL
             AND source_accounts.deleted_at IS NULL
+            AND source_accounts.provider_code = ?
             AND source_accounts.provider_protocol_profile_id = ?
             AND source_accounts.type IN ('api_key', 'oauth')
             AND source_accounts.status = 'active'
@@ -169,8 +171,10 @@ export function listGatewayDispatchCandidateRows(
     .all(
       groupId,
       groupAccess.groupOwnerSystemAccountId,
+      groupAccess.providerCode,
       groupAccess.providerProtocolProfileId,
       now,
+      groupAccess.providerCode,
       groupAccess.providerProtocolProfileId,
       now,
       now,

@@ -57,6 +57,10 @@ export async function resolveNextApiKeyGroupFallbackCandidate(
 ): Promise<ApiKeyGroupFallbackCandidate | undefined> {
   const bindings = input.apiKeyRecord?.group_bindings ?? []
   const currentIndex = bindings.findIndex((binding) => binding.group_id === input.groupId)
+  const currentBinding = currentIndex >= 0 ? bindings[currentIndex] : undefined
+  const currentGroupAccess = await resolveCachedGroupUsageAccessMetadataAsync(input.groupId, input.systemAccountId)
+  const currentProviderCode = currentBinding?.provider_code ?? currentGroupAccess?.providerCode
+  const currentProviderProtocolProfileId = currentBinding?.provider_protocol_profile_id ?? currentGroupAccess?.providerProtocolProfileId
   const candidateBindings = currentIndex >= 0
     ? input.allowCandidateWrap
       ? [...bindings.slice(currentIndex + 1), ...bindings.slice(0, currentIndex + 1)]
@@ -70,8 +74,20 @@ export async function resolveNextApiKeyGroupFallbackCandidate(
       continue
     }
     seenGroupIds.add(binding.group_id)
+    if (currentProviderProtocolProfileId && binding.provider_protocol_profile_id && binding.provider_protocol_profile_id !== currentProviderProtocolProfileId) {
+      continue
+    }
+    if (currentProviderCode && binding.provider_code && binding.provider_code !== currentProviderCode) {
+      continue
+    }
     const groupAccess = await resolveCachedGroupUsageAccessMetadataAsync(binding.group_id, input.systemAccountId)
     if (!groupAccess) {
+      continue
+    }
+    if (currentProviderProtocolProfileId && groupAccess.providerProtocolProfileId !== currentProviderProtocolProfileId) {
+      continue
+    }
+    if (currentProviderCode && groupAccess.providerCode !== currentProviderCode) {
       continue
     }
     const accounts = (await listCachedOpenAIAccountsForGroupAsync(binding.group_id, input.systemAccountId))

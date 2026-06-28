@@ -28,13 +28,26 @@ export function orderGatewayApiKeyGroupBindingsForDispatch(apiKey: GatewayApiKey
 }
 
 function normalizeGatewayApiKeyGroupBindings(bindings: GatewayApiKeyGroupBindingRow[] | undefined): GatewayApiKeyGroupBindingRow[] {
-  return [...(bindings ?? [])]
+  const orderedBindings = [...(bindings ?? [])]
     .filter((binding) => binding.status === 'active' && binding.group_enabled !== 0)
     .map((binding) => ({
       ...binding,
       weight: normalizeApiKeyGroupBindingWeight(binding.weight)
     }))
     .sort((left, right) => left.priority - right.priority || left.group_id.localeCompare(right.group_id))
+  const primaryBinding = orderedBindings[0]
+  if (!primaryBinding) {
+    return []
+  }
+  const primaryProviderProfileId = primaryBinding.provider_protocol_profile_id?.trim()
+  const primaryProviderCode = primaryBinding.provider_code?.trim()
+  return orderedBindings.filter((binding) => {
+    const providerProfileId = binding.provider_protocol_profile_id?.trim()
+    if (primaryProviderProfileId && providerProfileId) {
+      return providerProfileId === primaryProviderProfileId
+    }
+    return primaryProviderCode ? binding.provider_code?.trim() === primaryProviderCode : true
+  })
 }
 
 function nextRoundRobinIndex(apiKeyId: string, bindingCount: number): number {

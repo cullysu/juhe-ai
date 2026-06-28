@@ -30,6 +30,7 @@ export interface GatewayApiKeyGroupBindingRow {
   weight: number
   status: 'active' | 'disabled'
   provider_code: string
+  provider_protocol_profile_id: string
   group_enabled: number
 }
 
@@ -215,6 +216,7 @@ export function loadActiveGatewayApiKeyGroupBindings(apiKeyId: string, systemAcc
       api_key_group_bindings.weight,
       api_key_group_bindings.status,
       groups.provider_code,
+      groups.provider_protocol_profile_id,
       groups.enabled AS group_enabled
     FROM api_key_group_bindings
     INNER JOIN groups

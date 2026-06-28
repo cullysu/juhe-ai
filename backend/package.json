@@ -55,6 +55,7 @@
     "test:md-supplier-single-select-routing": "tsx src/scripts/regression/md-supplier-single-select-routing-regression.ts",
     "test:generic-provider-bootstrap": "tsx src/scripts/regression/generic-provider-bootstrap-regression.ts",
     "test:ccswitch-openai-v1-usage-account": "tsx src/scripts/regression/ccswitch-openai-v1-usage-account-regression.ts",
+    "test:api-key-provider-bound-route": "tsx src/scripts/regression/api-key-provider-bound-route-regression.ts",
     "test:group-scheduling-policy": "tsx src/scripts/regression/group-scheduling-policy-regression.ts",
     "test:high-concurrency-queue": "tsx src/scripts/regression/high-concurrency-queue-regression.ts",
     "test:account-concurrency-lane-index": "tsx src/scripts/regression/account-concurrency-lane-index-regression.ts",

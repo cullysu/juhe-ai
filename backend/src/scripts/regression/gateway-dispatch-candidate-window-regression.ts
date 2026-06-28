@@ -109,6 +109,45 @@ try {
     .prepare('UPDATE accounts SET cooldown_until = ? WHERE id = ?')
     .run('2999-01-01T00:00:00.000Z', cooledAccount.id)
 
+  const providerBoundaryGroup = repositories.createGroup({
+    name: 'Provider boundary candidate group',
+    providerCode: 'gpt',
+    enabled: true
+  }, access)
+  const providerBoundaryAccount = repositories.createAccount({
+    providerCode: 'gpt',
+    name: 'Provider boundary valid account',
+    type: 'api_key',
+    credentials: {
+      api_key: 'sk-dispatch-provider-boundary-valid',
+      base_url: 'https://api.openai.com/v1'
+    },
+    status: 'active',
+    groupId: providerBoundaryGroup.id,
+    priority: 1
+  }, access)
+  const contaminatedProviderAccount = repositories.createAccount({
+    providerCode: 'gpt',
+    name: 'Provider boundary contaminated account',
+    type: 'api_key',
+    credentials: {
+      api_key: 'sk-dispatch-provider-boundary-contaminated',
+      base_url: 'https://api.openai.com/v1'
+    },
+    status: 'active',
+    groupId: providerBoundaryGroup.id,
+    priority: 2
+  }, access)
+  database
+    .prepare('UPDATE accounts SET provider_code = ? WHERE id = ?')
+    .run('md', contaminatedProviderAccount.id)
+  const providerBoundarySelection = repositories.listOpenAIAccountsForGroupResult(providerBoundaryGroup.id, access.systemAccountId)
+  assert.deepEqual(
+    providerBoundarySelection.accounts.map((account) => account.id),
+    [providerBoundaryAccount.id],
+    'dispatch candidates must ignore legacy group bindings whose account provider no longer matches the group provider'
+  )
+
   const candidatePlans = explainDispatchCandidateWindowQueries(group.id, access.systemAccountId)
   assert(candidatePlans.length === 1, '调度候选应使用一条已状态化的候选窗口查询')
   for (const plan of candidatePlans) {
