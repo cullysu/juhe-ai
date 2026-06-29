@@ -75,7 +75,7 @@ try {
   try {
     upstreamServer = createMockOpenAIResponsesUpstream()
     await listen(upstreamServer)
-    const upstreamBaseUrl = `http://127.0.0.1:${serverAddress(upstreamServer).port}/v1`
+    const upstreamBaseUrl = `http://127.0.0.1:${serverAddress(upstreamServer).port}`
 
     const database = databaseModule.getBusinessDatabase()
     seedDefaults(database)
@@ -152,7 +152,7 @@ try {
     assert.equal(responseBody.usage?.input_tokens, 3, 'responses payload should keep upstream usage input tokens')
     assert.equal(responseBody.usage?.output_tokens, 4, 'responses payload should keep upstream usage output tokens')
     assert.equal(upstreamHitCount, 1, 'gateway should call the mock upstream exactly once')
-    assert.equal(upstreamPath, '/v1/responses', 'gateway should hit the OpenAI v1 responses path')
+    assert.equal(upstreamPath, '/v1/responses', 'gateway should normalize a ccswitch base URL without /v1 to the OpenAI v1 responses path')
     assert.equal(upstreamAuthorization, 'Bearer sk-ccswitch-upstream', 'gateway should forward the synthetic account key')
     assert.match(upstreamRequestBody, /"model":"gpt-5\.5"/, 'upstream request body should keep the requested model')
     assert.match(upstreamRequestBody, /"input":"hello ccswitch"/, 'upstream request body should keep the request input')

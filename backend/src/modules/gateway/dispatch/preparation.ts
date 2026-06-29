@@ -41,6 +41,11 @@ import {
 import type { OpenAIGatewayClientStrategyContext } from '../client-profiles/strategy.js'
 import type { GatewayFailureUsageContext } from '../usage/records.js'
 import type { OpenAIGatewayDispatchContext } from '../request/preflight.js'
+import {
+  filterGatewayDispatchAccountsByInvariant,
+  gatewayDispatchAccountInvariantAuditMetadata,
+  gatewayDispatchAccountInvariantFailureMessage
+} from './account-invariant.js'
 
 export interface DispatchPreparationFallbackResult {
   attempted: boolean
@@ -86,8 +91,44 @@ export async function prepareOpenAIGatewayDispatchAccounts(input: {
     }
   }
 
+  const invariantFilter = filterGatewayDispatchAccountsByInvariant({
+    accounts: input.candidateAccounts,
+    groupAccess: input.groupAccess
+  })
+  if (invariantFilter.dropped.length > 0) {
+    input.auditCapture.addGatewayMetadata({
+      label: 'dispatch_account_invariant',
+      metadata: gatewayDispatchAccountInvariantAuditMetadata(invariantFilter)
+    })
+  }
+  if (input.candidateAccounts.length > 0 && invariantFilter.accounts.length === 0) {
+    const fallback = await input.attemptFallback('dispatch_account_invariant_failed')
+    if (fallback.attempted) {
+      return { outcome: 'fallback', context: fallback.context }
+    }
+    const statusCode = 503
+    const message = gatewayDispatchAccountInvariantFailureMessage()
+    const responsePayload = gatewayErrorPayload(message, 'service_unavailable', 'dispatch_account_invariant_failed')
+    sendGatewayFailureResponse({
+      req: input.req,
+      res: input.res,
+      auditCapture: input.auditCapture,
+      usageContext: input.usageContext,
+      startedAt: input.startedAt,
+      statusCode,
+      responsePayload,
+      audit: {
+        outcome: 'gateway_failed',
+        errorPhase: 'dispatch',
+        errorCode: 'dispatch_account_invariant_failed',
+        errorMessage: message
+      }
+    })
+    return { outcome: 'completed' }
+  }
+
   const orderedCandidateAccounts = orderOpenAIAccountsBySessionAffinity(
-    input.candidateAccounts,
+    invariantFilter.accounts,
     input.sessionAffinityKey,
     dispatchOrderingOptions
   )

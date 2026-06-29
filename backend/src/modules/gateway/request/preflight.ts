@@ -394,6 +394,7 @@ export async function prepareOpenAIGatewayDispatchContext(
     usageContext,
     startedAt,
     rawCandidateAccounts,
+    groupAccess,
     systemAccountId,
     apiKeyId,
     groupId,

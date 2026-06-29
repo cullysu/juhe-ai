@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 
+import type { GroupUsageAccessMetadata } from '../../../storage/repositories.js'
 import type { AuditCaptureContext } from '../audit/capture.service.js'
 import {
   filterGatewayAccountsByRequestCapability
@@ -15,6 +16,11 @@ import { requestModel } from '../request/metadata.js'
 import type { GatewayFailureUsageContext } from '../usage/records.js'
 import { recordClientIpRequestErrorSample } from '../request/local-request-errors.js'
 import type { OpenAIGatewayDispatchContext } from '../request/preflight.js'
+import {
+  filterGatewayDispatchAccountsByInvariant,
+  gatewayDispatchAccountInvariantAuditMetadata,
+  gatewayDispatchAccountInvariantFailureMessage
+} from './account-invariant.js'
 
 export interface RequestCandidateFallbackResult {
   attempted: boolean
@@ -33,6 +39,7 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
   usageContext: GatewayFailureUsageContext
   startedAt: number
   rawCandidateAccounts: UpstreamAccount[]
+  groupAccess: GroupUsageAccessMetadata
   systemAccountId: string
   apiKeyId?: string
   groupId: string
@@ -40,7 +47,43 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
   endpoint: string
   attemptFallback: (reason: string) => Promise<RequestCandidateFallbackResult>
 }): Promise<RequestCandidateFilterResult> {
-  const capabilityFilter = filterGatewayAccountsByRequestCapability(input.req, input.rawCandidateAccounts)
+  const invariantFilter = filterGatewayDispatchAccountsByInvariant({
+    accounts: input.rawCandidateAccounts,
+    groupAccess: input.groupAccess
+  })
+  if (invariantFilter.dropped.length > 0) {
+    input.auditCapture.addGatewayMetadata({
+      label: 'dispatch_account_invariant',
+      metadata: gatewayDispatchAccountInvariantAuditMetadata(invariantFilter)
+    })
+  }
+  if (input.rawCandidateAccounts.length > 0 && invariantFilter.accounts.length === 0) {
+    const fallback = await input.attemptFallback('dispatch_account_invariant_failed')
+    if (fallback.attempted) {
+      return { outcome: 'fallback', context: fallback.context }
+    }
+    const statusCode = 503
+    const message = gatewayDispatchAccountInvariantFailureMessage()
+    const responsePayload = gatewayErrorPayload(message, 'service_unavailable', 'dispatch_account_invariant_failed')
+    sendGatewayFailureResponse({
+      req: input.req,
+      res: input.res,
+      auditCapture: input.auditCapture,
+      usageContext: input.usageContext,
+      startedAt: input.startedAt,
+      statusCode,
+      responsePayload,
+      audit: {
+        outcome: 'gateway_failed',
+        errorPhase: 'dispatch',
+        errorCode: 'dispatch_account_invariant_failed',
+        errorMessage: message
+      }
+    })
+    return { outcome: 'completed' }
+  }
+
+  const capabilityFilter = filterGatewayAccountsByRequestCapability(input.req, invariantFilter.accounts)
   if (capabilityFilter.skippedCount > 0) {
     input.auditCapture.addGatewayMetadata({
       label: 'account_request_capability_filter',
@@ -51,7 +94,7 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
       }
     })
   }
-  if (input.rawCandidateAccounts.length > 0 && capabilityFilter.accounts.length === 0) {
+  if (invariantFilter.accounts.length > 0 && capabilityFilter.accounts.length === 0) {
     const fallback = await input.attemptFallback('request_capability_mismatch')
     if (fallback.attempted) {
       return { outcome: 'fallback', context: fallback.context }

@@ -21,6 +21,7 @@ import type { OpenAIGatewayRequestLane } from '../protocols/openai-v1/request-la
 import type { UpstreamAccount } from '../protocols/openai-v1/route-helpers.js'
 import { areGatewayAccountsCapacityBusyForLane } from './capacity.js'
 import type { ResponseInspectionPolicySummary } from '../../../storage/response-inspection-policy.repository.js'
+import { filterGatewayDispatchAccountsByInvariant } from './account-invariant.js'
 
 export interface ApiKeyGroupFallbackCandidateInput {
   req: Request
@@ -92,10 +93,11 @@ export async function resolveNextApiKeyGroupFallbackCandidate(
     }
     const accounts = (await listCachedOpenAIAccountsForGroupAsync(binding.group_id, input.systemAccountId))
       .filter((account) => !excludedAccountIds.has(account.id))
-    if (!accounts.length) {
+    const invariantAccounts = filterGatewayDispatchAccountsByInvariant({ accounts, groupAccess }).accounts
+    if (!invariantAccounts.length) {
       continue
     }
-    const capabilityFilter = filterGatewayAccountsByRequestCapability(input.req, accounts)
+    const capabilityFilter = filterGatewayAccountsByRequestCapability(input.req, invariantAccounts)
     if (!capabilityFilter.accounts.length) {
       continue
     }

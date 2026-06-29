@@ -179,6 +179,7 @@
     "test:gateway-account-precheck-runtime": "tsx src/scripts/regression/gateway-account-precheck-runtime-regression.ts",
     "test:gateway-concurrency-snapshot": "tsx src/scripts/regression/gateway-concurrency-snapshot-regression.ts",
     "test:gateway-concurrency-preparation": "tsx src/scripts/regression/gateway-concurrency-preparation-regression.ts",
+    "test:gateway-dispatch-account-invariant": "tsx src/scripts/regression/gateway-dispatch-account-invariant-regression.ts",
     "test:gateway-dispatch-candidate-window": "tsx src/scripts/regression/gateway-dispatch-candidate-window-regression.ts",
     "test:authorized-account-dispatch-query": "tsx src/scripts/regression/authorized-account-dispatch-query-regression.ts",
     "test:authorized-account-dispatch-flags": "tsx src/scripts/regression/authorized-account-dispatch-flags-regression.ts",
