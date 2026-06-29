@@ -2,6 +2,7 @@ import { Router } from 'express'
 
 import { ok, sendNotFound } from '../../shared/http.js'
 import { finiteNumberQueryValue, optionalQueryText } from '../../shared/query-values.js'
+import { nowIso } from '../../storage/database.js'
 import { getUsageRecordDetail, listUsageRecords, type UsageRecordListOptions, type UsageRecordSortField, type UsageRecordSummary, type UsageRecordTrafficSource } from '../../storage/repositories.js'
 import { dateKey, startOfZonedDateKeyIso, usageStatsTimezone } from '../../storage/usage-stats-helpers.js'
 import { getRequestAccessScope } from '../auth/request-context.js'
@@ -29,6 +30,7 @@ usageRecordsRouter.get('/:id', (req, res) => {
 const usageRecordSortFields = new Set<UsageRecordSortField>(['createdAt', 'firstTokenMs', 'durationMs', 'costUsd'])
 const usageRecordTrafficSources = new Set<UsageRecordTrafficSource>(['gateway', 'manual_account_test', 'cooldown_retest'])
 const usageRecordDefaultLookbackDays = 31
+const usageRecordFutureClockSkewMs = 5 * 60 * 1000
 const dayMs = 24 * 60 * 60 * 1000
 
 function withCostBreakdown(record: UsageRecordSummary) {
@@ -59,7 +61,7 @@ function parseListOptions(query: Record<string, unknown>): UsageRecordListOption
   const rawPage = finiteNumberQueryValue(query.page)
   const rawPageSize = finiteNumberQueryValue(query.pageSize)
   const rawStatusCode = finiteNumberQueryValue(query.statusCode)
-  const createdAtRange = dateRangeQueryValue(query.startDate, query.endDate)
+  const createdAtRange = capUsageRecordFutureRange(dateRangeQueryValue(query.startDate, query.endDate))
   const sortBy = typeof query.sortBy === 'string' && usageRecordSortFields.has(query.sortBy as UsageRecordSortField)
     ? query.sortBy as UsageRecordSortField
     : undefined
@@ -124,6 +126,17 @@ function defaultUsageRecordDateRange(): { startAt?: string; endAt?: string } {
   return {
     startAt: startOfDateKeyIso(startDate),
     endAt: startOfDateKeyIso(nextDateKey(endDate))
+  }
+}
+
+function capUsageRecordFutureRange(range: { startAt?: string; endAt?: string }): { startAt?: string; endAt?: string } {
+  const futureCeiling = new Date(Date.parse(nowIso()) + usageRecordFutureClockSkewMs).toISOString()
+  if (range.endAt && range.endAt <= futureCeiling) {
+    return range
+  }
+  return {
+    ...range,
+    endAt: futureCeiling
   }
 }
 

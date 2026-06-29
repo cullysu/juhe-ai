@@ -17,7 +17,7 @@ export function displayUsageRecordGroupName(name?: string, id?: string): string 
 export function accountDisplayText(record: UsageRecordSummary): string {
   if (record.accountName) return record.accountName
   if (record.accountId) return '已删除或未知'
-  if (!record.success) return '无目标账户'
+  if (!record.success && record.trafficSource === 'gateway') return '无目标账户'
   return '-'
 }
 
@@ -85,7 +85,7 @@ export function trafficSourceColor(record: UsageRecordSummary): string {
 export function errorText(record: UsageRecordSummary): string {
   if (record.errorMessage) return record.errorMessage
   if (record.responseSnapshot) return JSON.stringify(record.responseSnapshot, null, 2)
-  if (!record.accountId && !record.success) return '无目标账户'
+  if (!record.accountId && !record.success && record.trafficSource === 'gateway') return '无目标账户'
   return '-'
 }
 

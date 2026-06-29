@@ -6,6 +6,22 @@ assertEqual(accountDisplayText(failedNoAccount), '无目标账户', '失败记�
 assertEqual(errorText(failedNoAccount), '无目标账户', '失败记录未选中上游账号时错误提示也应显示无目标账户')
 
 assertEqual(
+  accountDisplayText(usageRecord({ success: false, trafficSource: 'manual_account_test' })),
+  '-',
+  '手动测试记录缺失账号时不应显示无目标账户'
+)
+assertEqual(
+  accountDisplayText(usageRecord({ success: false, trafficSource: 'cooldown_retest' })),
+  '-',
+  '恢复探活记录缺失账号时不应显示无目标账户'
+)
+assertEqual(
+  errorText(usageRecord({ success: false, trafficSource: 'cooldown_retest' })),
+  '-',
+  '恢复探活错误提示缺失账号时不应显示无目标账户'
+)
+
+assertEqual(
   accountDisplayText(usageRecord({ success: false, accountId: 'account_deleted_or_unknown' })),
   '已删除或未知',
   '有账号 ID 但名称缺失时应保留已删除或未知语义'

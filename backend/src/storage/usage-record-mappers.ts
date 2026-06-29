@@ -92,7 +92,7 @@ function usageRecordAccountName(
 }
 
 function isNoSelectedAccountTrafficSource(value: UsageRecordSummary['trafficSource']): boolean {
-  return value === 'gateway' || value === 'manual_account_test' || value === 'cooldown_retest'
+  return value === 'gateway'
 }
 
 function usageRecordTrafficSource(value: unknown): UsageRecordSummary['trafficSource'] {

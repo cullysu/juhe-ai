@@ -22,6 +22,7 @@ export async function resolveLocalSuppressionFilter(input: {
   apiKeyId?: string
   groupId: string
   signal?: AbortSignal
+  explicitFailureAccountId?: string
 }): Promise<LocalAccountSuppressionFilterResult<UpstreamAccount> | undefined> {
   const filter = filterLocallySuppressedGatewayAccounts(input.accounts)
   if (filter.suppressedCount > 0) {
@@ -71,6 +72,7 @@ export async function resolveLocalSuppressionFilter(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.explicitFailureAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'dispatch',

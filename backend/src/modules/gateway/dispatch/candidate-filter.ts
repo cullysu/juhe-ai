@@ -45,11 +45,14 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
   groupId: string
   clientIp?: string
   endpoint: string
+  allowedAccountStatuses?: readonly UpstreamAccount['status'][]
+  explicitFailureAccountId?: string
   attemptFallback: (reason: string) => Promise<RequestCandidateFallbackResult>
 }): Promise<RequestCandidateFilterResult> {
   const invariantFilter = filterGatewayDispatchAccountsByInvariant({
     accounts: input.rawCandidateAccounts,
-    groupAccess: input.groupAccess
+    groupAccess: input.groupAccess,
+    allowedAccountStatuses: input.allowedAccountStatuses
   })
   if (invariantFilter.dropped.length > 0) {
     input.auditCapture.addGatewayMetadata({
@@ -73,6 +76,7 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'dispatch',
@@ -123,6 +127,7 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'request_validation',
@@ -174,6 +179,7 @@ export async function filterOpenAIGatewayRequestCandidateAccounts(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'request_validation',

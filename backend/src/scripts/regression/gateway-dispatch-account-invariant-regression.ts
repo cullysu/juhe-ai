@@ -48,6 +48,27 @@ assert.deepEqual(
   'invalid dispatch accounts should be rejected with explicit reasons'
 )
 
+const cooldownAccount = account({ id: 'acct_cooldown_dispatch_invariant', status: 'temporary_unavailable' })
+assert.equal(
+  gatewayDispatchAccountInvariantFailureReason(cooldownAccount, groupAccess),
+  'inactive_account',
+  'default gateway dispatch must remain active-only'
+)
+assert.equal(
+  gatewayDispatchAccountInvariantFailureReason(cooldownAccount, groupAccess, new Set(['active', 'temporary_unavailable'])),
+  undefined,
+  'explicit account-test dispatch may opt in to cooldown account statuses'
+)
+assert.deepEqual(
+  filterGatewayDispatchAccountsByInvariant({
+    groupAccess,
+    accounts: [cooldownAccount],
+    allowedAccountStatuses: ['active', 'temporary_unavailable']
+  }).accounts.map((item) => item.id),
+  [cooldownAccount.id],
+  'explicit account-test dispatch should keep allowed cooldown accounts without weakening the default gateway path'
+)
+
 assert.equal(
   gatewayDispatchAccountInvariantFailureReason(account({ accountAccessType: 'account_authorized', accountAuthorizationId: undefined }), groupAccess),
   'missing_account_authorization',

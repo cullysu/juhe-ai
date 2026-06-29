@@ -15,10 +15,10 @@ const failedNoAccount = summary(baseRow)
 assert.equal(failedNoAccount.accountName, '无目标账户', '网关失败且未选中上游账号时应返回明确账号文案')
 
 const manualFailedNoAccount = summary({ ...baseRow, traffic_source: 'manual_account_test' })
-assert.equal(manualFailedNoAccount.accountName, '无目标账户', '手动测试失败且未选中上游账号时应返回明确账号文案')
+assert.equal(manualFailedNoAccount.accountName, undefined, '手动测试失败记录不应把缺失账号伪装成无目标账户')
 
 const cooldownFailedNoAccount = summary({ ...baseRow, traffic_source: 'cooldown_retest' })
-assert.equal(cooldownFailedNoAccount.accountName, '无目标账户', '恢复探活失败且未选中上游账号时应返回明确账号文案')
+assert.equal(cooldownFailedNoAccount.accountName, undefined, '恢复探活记录不应把缺失账号伪装成无目标账户')
 
 const deletedAccount = summary({ ...baseRow, account_id: 'account_deleted_or_unknown' })
 assert.equal(deletedAccount.accountName, undefined, '有账号 ID 但名称缺失时应保留已删除或未知语义')

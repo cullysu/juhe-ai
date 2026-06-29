@@ -37,17 +37,19 @@ export interface GatewayDispatchAccountInvariantResult {
 export function filterGatewayDispatchAccountsByInvariant(input: {
   accounts: readonly (UpstreamAccount | undefined | null)[]
   groupAccess: GroupUsageAccessMetadata
+  allowedAccountStatuses?: readonly UpstreamAccount['status'][]
 }): GatewayDispatchAccountInvariantResult {
   const accounts: UpstreamAccount[] = []
   const dropped: GatewayDispatchAccountInvariantDrop[] = []
   const seenAccountIds = new Set<string>()
+  const allowedAccountStatuses = new Set<UpstreamAccount['status']>(input.allowedAccountStatuses?.length ? input.allowedAccountStatuses : ['active'])
   for (const account of input.accounts) {
     const accountId = textValue(account?.id)
     if (accountId && seenAccountIds.has(accountId)) {
       dropped.push(dropFromAccount(account, 'duplicate_account_id'))
       continue
     }
-    const reason = gatewayDispatchAccountInvariantFailureReason(account, input.groupAccess)
+    const reason = gatewayDispatchAccountInvariantFailureReason(account, input.groupAccess, allowedAccountStatuses)
     if (reason) {
       dropped.push(dropFromAccount(account, reason))
       continue
@@ -75,7 +77,8 @@ export function gatewayDispatchAccountInvariantFailureMessage(): string {
 
 export function gatewayDispatchAccountInvariantFailureReason(
   account: UpstreamAccount | undefined | null,
-  groupAccess: GroupUsageAccessMetadata
+  groupAccess: GroupUsageAccessMetadata,
+  allowedAccountStatuses: ReadonlySet<UpstreamAccount['status']> = new Set<UpstreamAccount['status']>(['active'])
 ): GatewayDispatchAccountInvariantReason | undefined {
   if (!account) return 'missing_account'
   if (!textValue(account.id)) return 'missing_account_id'
@@ -88,7 +91,7 @@ export function gatewayDispatchAccountInvariantFailureReason(
   if (account.groupOwnerSystemAccountId !== groupAccess.groupOwnerSystemAccountId) return 'group_owner_mismatch'
   if (account.groupAccessType !== groupAccess.groupAccessType) return 'group_access_mismatch'
   if (account.type !== 'api_key' && account.type !== 'oauth') return 'unsupported_account_type'
-  if (account.status !== 'active') return 'inactive_account'
+  if (!allowedAccountStatuses.has(account.status)) return 'inactive_account'
   if (!Number.isFinite(account.concurrencyLimit) || account.concurrencyLimit < 1) return 'invalid_concurrency_limit'
   if (!textValue(account.apiKey)) return 'missing_api_key'
   if (account.type === 'api_key' && !textValue(account.baseUrl)) return 'missing_base_url'

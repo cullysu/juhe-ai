@@ -42,6 +42,7 @@ export async function applyOpenAIGatewayImagePermissionPreflight(input: {
   clientIp?: string
   endpoint: string
   gatewayTextRawBodyLimitMegabytes?: number
+  explicitFailureAccountId?: string
   signal?: AbortSignal
 }): Promise<OpenAIGatewayImagePermissionPreflightResult> {
   if (!isImageGenerationDisabledForApiKey(input.apiKeyRecord, input.requestLane)) {
@@ -87,7 +88,8 @@ export async function applyOpenAIGatewayImagePermissionPreflight(input: {
       apiKeyId: input.apiKeyId,
       groupId: input.groupId,
       clientIp: input.clientIp,
-      endpoint: input.endpoint
+      endpoint: input.endpoint,
+      usageAccountId: input.explicitFailureAccountId
     })
     return { outcome: 'completed' }
   }
@@ -103,6 +105,7 @@ export async function applyOpenAIGatewayImagePermissionPreflight(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'request_validation',
@@ -131,6 +134,7 @@ export async function applyOpenAIGatewayImagePermissionPreflight(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.explicitFailureAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'authorization',
@@ -151,6 +155,7 @@ function rejectOversizedAutoImageGenerationTextDowngrade(input: {
   apiKeyId?: string
   groupId: string
   gatewayTextRawBodyLimitMegabytes?: number
+  explicitFailureAccountId?: string
 }): boolean {
   const state = getGatewayRequestBodyState(input.req)
   const req = input.req as GatewayRawBodyRequest
@@ -202,6 +207,7 @@ function rejectOversizedAutoImageGenerationTextDowngrade(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.explicitFailureAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'request_validation',

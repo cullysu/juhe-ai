@@ -78,6 +78,8 @@ export async function prepareOpenAIGatewayDispatchAccounts(input: {
   clientIp?: string
   clientStrategy: OpenAIGatewayClientStrategyContext
   requestLane: OpenAIGatewayRequestLane
+  allowedAccountStatuses?: readonly UpstreamAccount['status'][]
+  explicitFailureAccountId?: string
   signal?: AbortSignal
   attemptFallback: (reason: string) => Promise<DispatchPreparationFallbackResult>
 }): Promise<DispatchPreparationResult> {
@@ -93,7 +95,8 @@ export async function prepareOpenAIGatewayDispatchAccounts(input: {
 
   const invariantFilter = filterGatewayDispatchAccountsByInvariant({
     accounts: input.candidateAccounts,
-    groupAccess: input.groupAccess
+    groupAccess: input.groupAccess,
+    allowedAccountStatuses: input.allowedAccountStatuses
   })
   if (invariantFilter.dropped.length > 0) {
     input.auditCapture.addGatewayMetadata({
@@ -117,6 +120,7 @@ export async function prepareOpenAIGatewayDispatchAccounts(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'dispatch',
@@ -169,7 +173,8 @@ export async function prepareOpenAIGatewayDispatchAccounts(input: {
     systemAccountId: input.systemAccountId,
     apiKeyId: input.apiKeyId,
     groupId: input.groupId,
-    signal: input.signal
+    signal: input.signal,
+    explicitFailureAccountId: input.explicitFailureAccountId
   })
   if (!localSuppressionFilter) {
     return { outcome: 'completed' }
@@ -292,6 +297,7 @@ async function prepareQuotaAndCapacityReadyAccounts(input: {
   groupId: string
   clientIp?: string
   requestLane: OpenAIGatewayRequestLane
+  explicitFailureAccountId?: string
   signal?: AbortSignal
   dispatchOrderingOptions: OpenAIAccountDispatchOrderingOptions
   attemptFallback: (reason: string) => Promise<DispatchPreparationFallbackResult>
@@ -317,7 +323,9 @@ async function prepareQuotaAndCapacityReadyAccounts(input: {
       if (fallback.attempted) {
         return { outcome: 'fallback', context: fallback.context }
       }
-      sendQuotaExceededResponse(input.req, input.res, input.auditCapture, input.usageContext, input.startedAt, AUTHORIZATION_QUOTA_EXCEEDED_MESSAGE)
+      sendQuotaExceededResponse(input.req, input.res, input.auditCapture, input.usageContext, input.startedAt, AUTHORIZATION_QUOTA_EXCEEDED_MESSAGE, {
+        usageAccountId: input.explicitFailureAccountId
+      })
       return { outcome: 'completed' }
     }
     const statusCode = 503
@@ -330,6 +338,7 @@ async function prepareQuotaAndCapacityReadyAccounts(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'dispatch',
@@ -398,6 +407,7 @@ async function prepareQuotaAndCapacityReadyAccounts(input: {
         startedAt: input.startedAt,
         statusCode,
         responsePayload,
+        usageAccountId: input.explicitFailureAccountId,
         audit: {
           outcome: 'gateway_failed',
           errorPhase: 'dispatch',
@@ -455,6 +465,7 @@ async function prepareQuotaAndCapacityReadyAccounts(input: {
       startedAt: input.startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: input.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'dispatch',

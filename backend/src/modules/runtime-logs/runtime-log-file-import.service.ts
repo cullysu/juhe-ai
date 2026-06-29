@@ -3,7 +3,7 @@ import { stat as statFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { runtimeConfig } from '../../config/runtime.js'
-import { nowIso } from '../../storage/database.js'
+import { isSqliteDatabaseLocked, nowIso } from '../../storage/database.js'
 import {
   getRuntimeLogFileCursor,
   upsertRuntimeLogFileCursor,
@@ -180,7 +180,9 @@ async function importRuntimeLogFileDelta(file: ActiveRuntimeLogFile): Promise<vo
       lastReadAt: cursor?.lastReadAt,
       lastErrorMessage: error instanceof Error ? error.message : String(error)
     })
-    process.stderr.write(`[runtime-log-index] 增量读取当前日志文件失败 ${file.path}：${error instanceof Error ? error.message : String(error)}\n`)
+    if (!isSqliteDatabaseLocked(error)) {
+      process.stderr.write(`[runtime-log-index] 增量读取当前日志文件失败 ${file.path}：${error instanceof Error ? error.message : String(error)}\n`)
+    }
   }
 }
 

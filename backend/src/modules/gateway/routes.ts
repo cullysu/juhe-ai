@@ -93,6 +93,8 @@ export interface OpenAIGatewayHandleOptions {
   auditCaptureMode?: 'default' | 'metadata_only'
   settingsOverride?: Partial<GatewaySettings>
   disableAccountStateMutation?: boolean
+  allowedAccountStatuses?: readonly UpstreamAccount['status'][]
+  explicitFailureAccountId?: string
 }
 
 export function handleGatewayDbServiceUnavailable(error: unknown, req: Request, res: Response, next: NextFunction): void {

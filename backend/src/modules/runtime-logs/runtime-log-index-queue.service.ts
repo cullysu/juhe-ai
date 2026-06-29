@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { runtimeConfig } from '../../config/runtime.js'
 import { estimateJsonLikeBytes } from '../../shared/queue-size.js'
 import { fixedRetryPolicy, retryDelayMs } from '../../shared/retry-policy.js'
-import { nowIso } from '../../storage/database.js'
+import { isSqliteDatabaseLocked, nowIso } from '../../storage/database.js'
 import {
   createRuntimeLogsBatch,
   runtimeLogIndexRetentionDays,
@@ -131,7 +131,9 @@ export function flushRuntimeLogIndexQueue(options: RuntimeLogFlushOptions = {}):
       } catch (error) {
         failed = true
         flushLastError = error instanceof Error ? error.message : String(error)
-        writeRuntimeLogIndexError(`运行日志索引写入失败：${flushLastError}`)
+        if (!isSqliteDatabaseLocked(error)) {
+          writeRuntimeLogIndexError(`运行日志索引写入失败：${flushLastError}`)
+        }
         shouldRetry = options.retryOnFailure !== false
         break
       }

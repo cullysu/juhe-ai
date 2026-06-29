@@ -21,6 +21,7 @@ export function sendInvalidJsonGatewayResponse(input: {
   groupId: string
   clientIp?: string
   endpoint: string
+  usageAccountId?: string
 }): void {
   const statusCode = 400
   const responsePayload = gatewayErrorPayload('请求体不是合法 JSON', 'invalid_request_error')
@@ -42,6 +43,7 @@ export function sendInvalidJsonGatewayResponse(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.usageAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'request_validation',

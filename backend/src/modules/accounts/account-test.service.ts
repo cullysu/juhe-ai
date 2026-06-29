@@ -40,6 +40,15 @@ import {
   createOpenAITestRequest
 } from './account-test-request.js'
 
+const accountTestAllowedGatewayAccountStatuses: readonly AccountSummary['status'][] = [
+  'active',
+  'pending_test',
+  'disabled',
+  'error',
+  'rate_limited',
+  'temporary_unavailable'
+]
+
 type AccountTestInput = {
   model?: string
   prompt?: string
@@ -181,7 +190,9 @@ export async function testOpenAIAccount(
       exposeUpstreamDiagnostics: !limitedDiagnostics,
       trafficSource: input.trafficSource ?? 'manual_account_test',
       settingsOverride: input.gatewaySettingsOverride,
-      disableAccountStateMutation: input.disableAccountStateMutation ?? true
+      disableAccountStateMutation: input.disableAccountStateMutation ?? true,
+      allowedAccountStatuses: accountTestAllowedGatewayAccountStatuses,
+      explicitFailureAccountId: account.id
     })))
     if (input.signal?.aborted) {
       throw accountTestAbortError(input.signal)

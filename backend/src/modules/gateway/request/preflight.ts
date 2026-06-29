@@ -78,6 +78,8 @@ interface OpenAIGatewayRequestPreflightOptions {
   trafficSource?: OpenAIGatewayTrafficSource
   settingsOverride?: Partial<GatewaySettings>
   requestLane?: OpenAIGatewayRequestLane
+  allowedAccountStatuses?: readonly UpstreamAccount['status'][]
+  explicitFailureAccountId?: string
 }
 
 interface PrepareOpenAIGatewayDispatchContextInput {
@@ -214,6 +216,7 @@ export async function prepareOpenAIGatewayDispatchContext(
       startedAt,
       statusCode,
       responsePayload,
+      usageAccountId: options.explicitFailureAccountId,
       audit: {
         outcome: 'gateway_failed',
         errorPhase: 'security',
@@ -229,7 +232,8 @@ export async function prepareOpenAIGatewayDispatchContext(
     auditCapture,
     usageContext: baseUsageContext,
     startedAt,
-    apiKeyUnavailable
+    apiKeyUnavailable,
+    usageAccountId: options.explicitFailureAccountId
   })) {
     return undefined
   }
@@ -245,7 +249,8 @@ export async function prepareOpenAIGatewayDispatchContext(
       apiKeyId,
       groupId,
       clientIp: gatewayClientIp,
-      endpoint
+      endpoint,
+      usageAccountId: options.explicitFailureAccountId
     })
     return undefined
   }
@@ -263,6 +268,7 @@ export async function prepareOpenAIGatewayDispatchContext(
     clientIp: gatewayClientIp,
     endpoint,
     gatewayTextRawBodyLimitMegabytes: activeGatewaySettings.gatewayTextRawBodyLimitMegabytes,
+    explicitFailureAccountId: options.explicitFailureAccountId,
     signal
   })
   if (imagePermissionPreflight.outcome === 'completed') {
@@ -299,7 +305,8 @@ export async function prepareOpenAIGatewayDispatchContext(
       auditCapture,
       usageContext: baseUsageContext,
       startedAt,
-      groupAccess
+      groupAccess,
+      usageAccountId: options.explicitFailureAccountId
     })
     return undefined
   }
@@ -326,7 +333,8 @@ export async function prepareOpenAIGatewayDispatchContext(
       apiKeyId,
       groupId,
       clientIp: gatewayClientIp,
-      endpoint
+      endpoint,
+      usageAccountId: options.explicitFailureAccountId
     })
     return undefined
   }
@@ -337,7 +345,8 @@ export async function prepareOpenAIGatewayDispatchContext(
     auditCapture,
     usageContext,
     startedAt,
-    apiKeyRecord
+    apiKeyRecord,
+    usageAccountId: options.explicitFailureAccountId
   })) {
     return undefined
   }
@@ -348,7 +357,8 @@ export async function prepareOpenAIGatewayDispatchContext(
     auditCapture,
     usageContext,
     startedAt,
-    groupAccess
+    groupAccess,
+    usageAccountId: options.explicitFailureAccountId
   })) {
     return undefined
   }
@@ -400,6 +410,8 @@ export async function prepareOpenAIGatewayDispatchContext(
     groupId,
     clientIp: gatewayClientIp,
     endpoint,
+    allowedAccountStatuses: options.allowedAccountStatuses,
+    explicitFailureAccountId: options.explicitFailureAccountId,
     attemptFallback: (reason) => prepareApiKeyGroupFallbackDispatchContext({
       req,
       res,
@@ -442,6 +454,8 @@ export async function prepareOpenAIGatewayDispatchContext(
     clientIp: gatewayClientIp,
     clientStrategy,
     requestLane,
+    allowedAccountStatuses: options.allowedAccountStatuses,
+    explicitFailureAccountId: options.explicitFailureAccountId,
     signal,
     attemptFallback: (reason) => prepareApiKeyGroupFallbackDispatchContext({
       req,

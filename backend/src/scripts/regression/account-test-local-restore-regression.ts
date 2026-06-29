@@ -50,6 +50,7 @@ app.use('/__aisys__/api/accounts', requireAdmin, accountsRouter)
 interface AccountTestResult {
   success: boolean
   statusCode?: number
+  errorCode?: string
   accountStatusChanged?: boolean
   accountStatus?: string
   traceId?: string
@@ -155,7 +156,12 @@ try {
     }
   })
 
-  console.log('手动账号测试恢复回归通过：自有账户测试成功会恢复临时不可调用、限流、异常和不可调度状态')
+  await assertExplicitAccountTestFailureKeepsTargetAccount({
+    appBaseUrl,
+    mockBaseUrl,
+    groupId: group.id
+  })
+  console.log('手动账号测试恢复回归通过：自有账户测试成功会恢复临时不可调用、限流、异常和不可调度状态，显式测试失败会归因到目标账号')
 } finally {
   await closeServer(appServer)
   await closeServer(mockOpenAIServer)
@@ -166,6 +172,48 @@ try {
   } catch {
   }
   rmSync(tempRoot, { recursive: true, force: true })
+}
+
+async function assertExplicitAccountTestFailureKeepsTargetAccount(input: {
+  appBaseUrl: string
+  mockBaseUrl: string
+  groupId: string
+}): Promise<void> {
+  const account = repositories.createAccount({
+    providerCode: 'gpt',
+    name: 'explicit account-test attribution cooldown',
+    type: 'api_key',
+    credentials: { api_key: 'sk-explicit-test-attribution', base_url: input.mockBaseUrl },
+    status: 'active',
+    schedulable: true,
+    groupId: input.groupId,
+    supportedModels: ['gpt-4o-mini']
+  }, adminAccess)
+  const updated = repositories.markAccountTemporaryUnavailable(account.id, 'mock explicit test cooldown')
+  assert.equal(updated?.status, 'temporary_unavailable', 'explicit attribution account should start as temporary unavailable')
+
+  const result = await submitAccountTestAndWait<AccountTestResult>({
+    baseUrl: input.appBaseUrl,
+    path: `/__aisys__/api/accounts/${account.id}/test`,
+    cookie: sessionCookie(),
+    body: { model: 'gpt-5.5' }
+  })
+  assert.equal(result.success, false, 'unsupported model should fail the explicit account test')
+  assert.equal(result.statusCode, 400, 'explicit test should pass dispatch invariant and fail at model filtering')
+  assert.notEqual(result.errorCode, 'dispatch_account_invariant_failed', 'explicit test must not be short-circuited by active-only gateway invariant')
+  assert(result.traceId, 'explicit account test failure should return a traceId')
+
+  flushAllUsageRecordQueue()
+  const usageRecordsByTrace = repositories.listUsageRecords(adminAccess, {
+    traceId: result.traceId,
+    trafficSource: 'manual_account_test',
+    page: 1,
+    pageSize: 10
+  })
+  const usageRecord = usageRecordsByTrace.items.find((item) => item.traceId === result.traceId)
+  assert(usageRecord, 'explicit account test failure should write a usage record')
+  assert.equal(usageRecord.accountId, account.id, 'explicit account test failure usage must bind the tested account')
+  assert.equal(usageRecord.accountName, account.name, 'explicit account test failure usage must display the tested account')
 }
 
 async function assertManualTestRestoresAccount(input: {

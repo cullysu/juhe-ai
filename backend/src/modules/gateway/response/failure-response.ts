@@ -23,6 +23,7 @@ interface SendGatewayFailureResponseInput {
   }
   recordUsage?: boolean
   usageErrorMessage?: string
+  usageAccountId?: string
 }
 
 export function sendGatewayFailureResponse(input: SendGatewayFailureResponseInput): void {
@@ -44,7 +45,8 @@ export function sendGatewayFailureResponse(input: SendGatewayFailureResponseInpu
       statusCode,
       startedAt,
       responsePayload,
-      errorMessage: usageErrorMessage
+      errorMessage: usageErrorMessage,
+      accountId: input.usageAccountId
     })
   }
   sendGatewayErrorResponse(res, statusCode, responsePayload)
@@ -67,7 +69,8 @@ export function sendQuotaExceededResponse(
   auditCapture: AuditCaptureContext,
   usageContext: GatewayFailureUsageContext,
   startedAt: number,
-  message: string
+  message: string,
+  options: { usageAccountId?: string } = {}
 ): void {
   const statusCode = 429
   const responsePayload = gatewayErrorPayload(message, 'rate_limit_exceeded')
@@ -79,6 +82,7 @@ export function sendQuotaExceededResponse(
     startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: options.usageAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'quota',

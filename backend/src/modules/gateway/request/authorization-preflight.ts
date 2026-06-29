@@ -18,6 +18,7 @@ export function rejectUnavailableGatewayApiKey(input: {
   usageContext: GatewayFailureUsageContext
   startedAt: number
   apiKeyUnavailable: boolean
+  usageAccountId?: string
 }): boolean {
   if (!input.apiKeyUnavailable) return false
   const statusCode = 401
@@ -30,6 +31,7 @@ export function rejectUnavailableGatewayApiKey(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.usageAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'authorization',
@@ -47,6 +49,7 @@ export function rejectMissingGatewayGroupAccess(input: {
   usageContext: GatewayFailureUsageContext
   startedAt: number
   groupAccess?: GroupUsageAccessMetadata
+  usageAccountId?: string
 }): boolean {
   if (input.groupAccess) return false
   const statusCode = 403
@@ -59,6 +62,7 @@ export function rejectMissingGatewayGroupAccess(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.usageAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'authorization',
@@ -76,6 +80,7 @@ export async function rejectGatewayApiKeyQuotaIfExceeded(input: {
   usageContext: GatewayFailureUsageContext
   startedAt: number
   apiKeyRecord?: GatewayApiKeyRow
+  usageAccountId?: string
 }): Promise<boolean> {
   const quotaDecision = input.apiKeyRecord ? await checkGatewayApiKeyQuotaAsync(input.apiKeyRecord) : { allowed: true }
   if (quotaDecision.allowed) return false
@@ -89,6 +94,7 @@ export async function rejectGatewayApiKeyQuotaIfExceeded(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
+    usageAccountId: input.usageAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'quota',
@@ -106,6 +112,7 @@ export async function rejectGatewayAuthorizationQuotaIfExceeded(input: {
   usageContext: GatewayFailureUsageContext
   startedAt: number
   groupAccess: GroupUsageAccessMetadata
+  usageAccountId?: string
 }): Promise<boolean> {
   const groupAuthorizationQuotaDecision = await checkGatewayAuthorizationQuotaAsync({ groupAccess: input.groupAccess })
   if (groupAuthorizationQuotaDecision.allowed) return false
@@ -115,7 +122,8 @@ export async function rejectGatewayAuthorizationQuotaIfExceeded(input: {
     input.auditCapture,
     input.usageContext,
     input.startedAt,
-    groupAuthorizationQuotaDecision.message ?? AUTHORIZATION_QUOTA_EXCEEDED_MESSAGE
+    groupAuthorizationQuotaDecision.message ?? AUTHORIZATION_QUOTA_EXCEEDED_MESSAGE,
+    { usageAccountId: input.usageAccountId }
   )
   return true
 }

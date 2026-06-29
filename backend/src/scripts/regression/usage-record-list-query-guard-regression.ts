@@ -575,9 +575,11 @@ try {
     const routeBaseUrl = `http://127.0.0.1:${serverAddress(routeServer).port}`
     const routeDefaultWindowInsideAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
     const routeDefaultWindowOutsideAt = new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()
+    const routeFutureAt = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString()
     const routeDefaultWindowModel = `route-default-window-model-${Date.now()}`
     const routeDefaultWindowInsideId = usageRecordShards.generateUsageRecordId(routeDefaultWindowInsideAt, 'inside')
     const routeDefaultWindowOutsideId = usageRecordShards.generateUsageRecordId(routeDefaultWindowOutsideAt, 'outside')
+    const routeFutureId = usageRecordShards.generateUsageRecordId(routeFutureAt, 'future-clock-skew')
     repositories.createUsageRecordsBatch([
       {
         id: routeDefaultWindowInsideId,
@@ -608,6 +610,21 @@ try {
         statusCode: 200,
         success: true,
         createdAt: routeDefaultWindowOutsideAt
+      },
+      {
+        id: routeFutureId,
+        traceId: 'trace-route-default-window-future-clock-skew',
+        trafficSource: 'gateway',
+        apiKeyId: apiKey.id,
+        groupId: group.id,
+        accountId: account.id,
+        endpoint: '/v1/responses',
+        providerCode: 'gpt',
+        model: routeDefaultWindowModel,
+        stream: false,
+        statusCode: 200,
+        success: true,
+        createdAt: routeFutureAt
       }
     ])
 
@@ -617,6 +634,8 @@ try {
       sessionCookie(admin.id)
     )
     assert.deepEqual(routeDefaultWindow.items.map((item) => item.id), [routeDefaultWindowInsideId], '使用记录路由未传日期时应默认限制最近 31 天')
+
+    assert(!routeDefaultWindow.items.some((item) => item.id === routeFutureId), 'usage record route should hide obvious future clock-skew records from the default list')
 
     const routePageClamp = await getEnvelope<UsageRecordListResult>(
       routeBaseUrl,
