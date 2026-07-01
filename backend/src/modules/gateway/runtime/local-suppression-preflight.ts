@@ -60,6 +60,7 @@ export async function resolveLocalSuppressionFilter(input: {
   }
 
   const statusCode = 503
+  const usageAccountId = input.explicitFailureAccountId ?? filter.suppressedAccountIds[0] ?? input.accounts[0]?.id
   const responsePayload = gatewayErrorPayload('所有上游账户正在临时隔离，请稍后重试', 'service_unavailable')
   if (!input.res.headersSent && filter.nextRetryAfterMs !== undefined) {
     input.res.setHeader('Retry-After', String(Math.max(1, Math.ceil(filter.nextRetryAfterMs / 1000))))
@@ -72,7 +73,7 @@ export async function resolveLocalSuppressionFilter(input: {
     startedAt: input.startedAt,
     statusCode,
     responsePayload,
-    usageAccountId: input.explicitFailureAccountId,
+    usageAccountId,
     audit: {
       outcome: 'gateway_failed',
       errorPhase: 'dispatch',

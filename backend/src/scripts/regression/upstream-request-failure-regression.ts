@@ -66,6 +66,7 @@ async function main(): Promise<void> {
   let upstreamServer: http.Server | undefined
   let closedTransportServer: http.Server | undefined
   try {
+    usageRecordQueue.setDbServiceUsageRecordLocalWriteAllowedForTest(true)
     settingsRepository.updateSettings({ temporaryUnschedulableRetryAttempts: 0 })
     gatewayCache.clearGatewayRuntimeCache()
 
@@ -548,6 +549,16 @@ async function main(): Promise<void> {
     assert.equal(waitResponse.headers.get('retry-after'), '1', '单账号本地屏蔽快速失败应返回最短 Retry-After')
     assert(fastFailElapsedMs < 800, `单账号本地屏蔽不应等待释放，实际耗时 ${fastFailElapsedMs}ms`)
     assert.equal(singleAccountLocalSuppressionFastFailHitCount, 0, `单账号本地屏蔽快速失败不应命中上游，实际 ${singleAccountLocalSuppressionFastFailHitCount}`)
+    const fastFailTraceId = waitResponse.headers.get('x-trace-id')
+    assert(fastFailTraceId, 'single-account local suppression fast-fail should return trace id')
+    usageRecordQueue.flushAllUsageRecordQueue()
+    const fastFailUsageRow = databaseModule.getDatasetDatabase()
+      .prepare('SELECT account_id, status_code, success FROM usage_record_shard_entries WHERE trace_id = ? LIMIT 1')
+      .get(fastFailTraceId) as unknown as { account_id?: string | null; status_code?: number; success?: number } | undefined
+    assert(fastFailUsageRow, 'single-account local suppression fast-fail should write usage record')
+    assert.equal(fastFailUsageRow.account_id, fastFailAccount.id, 'single-account local suppression fast-fail must not be recorded as no target account')
+    assert.equal(fastFailUsageRow.status_code, 503, 'single-account local suppression fast-fail usage record should keep 503 status')
+    assert.equal(fastFailUsageRow.success, 0, 'single-account local suppression fast-fail usage record should be failed')
     accountSideEffects.clearGatewayLocalAccountSuppressionsForTest()
 
     currentScenario = 'single_account_failure_default_cooldown'
@@ -576,6 +587,7 @@ async function main(): Promise<void> {
     console.log('上游失败回归通过：无效 JSON 由网关拒绝且不命中账号；普通上游失败会按临时状态配置原地重试，用尽后切号并进入运行态屏障；后续账号成功不掩盖前序账号屏障；全部失败返回统一网关错误；单账号本地屏蔽耗尽时快速失败且不命中上游')
   } finally {
     usageRecordQueue.flushAllUsageRecordQueue()
+    usageRecordQueue.setDbServiceUsageRecordLocalWriteAllowedForTest(false)
     auditLogQueue.flushAllAuditLogQueue()
     await closeServer(appServer)
     await closeServer(upstreamServer)
