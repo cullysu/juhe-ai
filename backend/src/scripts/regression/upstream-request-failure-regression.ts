@@ -333,6 +333,75 @@ async function main(): Promise<void> {
     assertAccountsActive([firstAccount, secondAccount], '同账号原地重试救回后不应写账号状态或切号')
     clientIpAccountAvoidanceService.clearClientIpAccountAvoidanceForTest()
 
+    currentScenario = 'quota_failure_switch_account_success'
+    const quotaFailureSwitchResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey.key}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: 'quota failure should switch account immediately' }],
+        stream: false
+      })
+    })
+    const quotaFailureSwitchText = await quotaFailureSwitchResponse.text()
+    assert.equal(quotaFailureSwitchResponse.status, 200, `quota failure should switch to next account, actual HTTP ${quotaFailureSwitchResponse.status}: ${quotaFailureSwitchText}`)
+    assert.equal(quotaFailureSwitchText, nonRetryableFailureSwitchSuccessBody, `quota failure switch response body mismatch: ${quotaFailureSwitchText}`)
+    assert.equal(quotaFailureSwitchFirstAccountHitCount, 1, `quota failure must not retry the same account, actual first account hits ${quotaFailureSwitchFirstAccountHitCount}`)
+    assert.equal(quotaFailureSwitchSecondAccountHitCount, 1, `quota failure should hit the next account once, actual ${quotaFailureSwitchSecondAccountHitCount}`)
+    assertAccountsRuntimeSuppressedActive([firstAccount], /HTTP 402|insufficient_user_quota|quota exhausted/, 'quota failure should suppress the failed account before switching')
+    assertAccountsActive([secondAccount], 'quota failure switch success account should remain active')
+    restoreRegressionAccounts([firstAccount])
+    clientIpAccountAvoidanceService.clearClientIpAccountAvoidanceForTest()
+
+    currentScenario = 'gateway_timeout_switch_account_success'
+    const gatewayTimeoutSwitchResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey.key}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: 'gateway timeout should switch account immediately' }],
+        stream: false
+      })
+    })
+    const gatewayTimeoutSwitchText = await gatewayTimeoutSwitchResponse.text()
+    assert.equal(gatewayTimeoutSwitchResponse.status, 200, `gateway timeout should switch to next account, actual HTTP ${gatewayTimeoutSwitchResponse.status}: ${gatewayTimeoutSwitchText}`)
+    assert.equal(gatewayTimeoutSwitchText, nonRetryableFailureSwitchSuccessBody, `gateway timeout switch response body mismatch: ${gatewayTimeoutSwitchText}`)
+    assert.equal(gatewayTimeoutSwitchFirstAccountHitCount, 1, `gateway timeout must not retry the same account, actual first account hits ${gatewayTimeoutSwitchFirstAccountHitCount}`)
+    assert.equal(gatewayTimeoutSwitchSecondAccountHitCount, 1, `gateway timeout should hit the next account once, actual ${gatewayTimeoutSwitchSecondAccountHitCount}`)
+    assertAccountsRuntimeSuppressedActive([firstAccount], /HTTP 524|cloudflare timeout/, 'gateway timeout should suppress the failed account before switching')
+    assertAccountsActive([secondAccount], 'gateway timeout switch success account should remain active')
+    restoreRegressionAccounts([firstAccount])
+    clientIpAccountAvoidanceService.clearClientIpAccountAvoidanceForTest()
+
+    currentScenario = 'transport_reset_switch_account_success'
+    const transportResetSwitchResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${apiKey.key}`,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: 'transport reset should switch account immediately' }],
+        stream: false
+      })
+    })
+    const transportResetSwitchText = await transportResetSwitchResponse.text()
+    assert.equal(transportResetSwitchResponse.status, 200, `transport reset should switch to next account, actual HTTP ${transportResetSwitchResponse.status}: ${transportResetSwitchText}`)
+    assert.equal(transportResetSwitchText, nonRetryableFailureSwitchSuccessBody, `transport reset switch response body mismatch: ${transportResetSwitchText}`)
+    assert.equal(transportResetSwitchFirstAccountHitCount, 1, `transport reset must not retry the same account, actual first account hits ${transportResetSwitchFirstAccountHitCount}`)
+    assert.equal(transportResetSwitchSecondAccountHitCount, 1, `transport reset should hit the next account once, actual ${transportResetSwitchSecondAccountHitCount}`)
+    assertAccountsRuntimeSuppressedActive([firstAccount], /socket hang up|ECONNRESET|reset/, 'transport reset should suppress the failed account before switching')
+    assertAccountsActive([secondAccount], 'transport reset switch success account should remain active')
+    restoreRegressionAccounts([firstAccount])
+    clientIpAccountAvoidanceService.clearClientIpAccountAvoidanceForTest()
+
     currentScenario = 'unknown_failure_switch_account_success'
     const switchResponse = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: 'POST',
@@ -526,6 +595,9 @@ type RegressionScenario =
   | 'same_signature_confirmation'
   | 'invalid_request_switch_account_success'
   | 'same_account_retry_success'
+  | 'quota_failure_switch_account_success'
+  | 'gateway_timeout_switch_account_success'
+  | 'transport_reset_switch_account_success'
   | 'unknown_failure_switch_account_success'
   | 'non_stream_first_byte_timeout_switch_account_success'
   | 'non_stream_body_interrupted_after_output_client_retry'
@@ -541,6 +613,12 @@ let sameSignatureUpstreamHitCount = 0
 let invalidRequestSwitchUpstreamHitCount = 0
 let sameAccountRetryFirstAccountHitCount = 0
 let sameAccountRetrySecondAccountHitCount = 0
+let quotaFailureSwitchFirstAccountHitCount = 0
+let quotaFailureSwitchSecondAccountHitCount = 0
+let gatewayTimeoutSwitchFirstAccountHitCount = 0
+let gatewayTimeoutSwitchSecondAccountHitCount = 0
+let transportResetSwitchFirstAccountHitCount = 0
+let transportResetSwitchSecondAccountHitCount = 0
 let unknownSwitchFirstAccountHitCount = 0
 let unknownSwitchSecondAccountHitCount = 0
 let nonStreamFirstByteTimeoutFirstAccountHitCount = 0
@@ -619,6 +697,18 @@ const sameAccountRetrySuccessBody = JSON.stringify({
     {
       index: 0,
       message: { role: 'assistant', content: 'ok after same account retry' },
+      finish_reason: 'stop'
+    }
+  ],
+  usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+})
+const nonRetryableFailureSwitchSuccessBody = JSON.stringify({
+  id: 'chatcmpl-non-retryable-switch-regression',
+  object: 'chat.completion',
+  choices: [
+    {
+      index: 0,
+      message: { role: 'assistant', content: 'ok after non-retryable failure switch' },
       finish_reason: 'stop'
     }
   ],
@@ -734,6 +824,44 @@ function createRejectedRequestUpstream(): http.Server {
       res.end(JSON.stringify({ id: 'should-not-switch-after-same-account-retry' }))
       return
     }
+    if (currentScenario === 'quota_failure_switch_account_success') {
+      const authorization = String(req.headers.authorization ?? '')
+      if (authorization.includes('sk-request-failure-1')) {
+        quotaFailureSwitchFirstAccountHitCount += 1
+        res.writeHead(402, { 'content-type': 'application/json; charset=utf-8' })
+        res.end(JSON.stringify({ error: { message: 'quota exhausted for this account', type: 'insufficient_quota', code: 'insufficient_user_quota' } }))
+        return
+      }
+      quotaFailureSwitchSecondAccountHitCount += 1
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' })
+      res.end(nonRetryableFailureSwitchSuccessBody)
+      return
+    }
+    if (currentScenario === 'gateway_timeout_switch_account_success') {
+      const authorization = String(req.headers.authorization ?? '')
+      if (authorization.includes('sk-request-failure-1')) {
+        gatewayTimeoutSwitchFirstAccountHitCount += 1
+        res.writeHead(524, { 'content-type': 'application/json; charset=utf-8' })
+        res.end(JSON.stringify({ error: { message: 'cloudflare timeout', type: 'server_error', code: 'timeout' } }))
+        return
+      }
+      gatewayTimeoutSwitchSecondAccountHitCount += 1
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' })
+      res.end(nonRetryableFailureSwitchSuccessBody)
+      return
+    }
+    if (currentScenario === 'transport_reset_switch_account_success') {
+      const authorization = String(req.headers.authorization ?? '')
+      if (authorization.includes('sk-request-failure-1')) {
+        transportResetSwitchFirstAccountHitCount += 1
+        req.socket.destroy()
+        return
+      }
+      transportResetSwitchSecondAccountHitCount += 1
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' })
+      res.end(nonRetryableFailureSwitchSuccessBody)
+      return
+    }
     if (currentScenario === 'invalid_request_switch_account_success') {
       invalidRequestSwitchUpstreamHitCount += 1
       const authorization = String(req.headers.authorization ?? '')
@@ -813,6 +941,12 @@ function totalUpstreamHitCount(): number {
     + invalidRequestSwitchUpstreamHitCount
     + sameAccountRetryFirstAccountHitCount
     + sameAccountRetrySecondAccountHitCount
+    + quotaFailureSwitchFirstAccountHitCount
+    + quotaFailureSwitchSecondAccountHitCount
+    + gatewayTimeoutSwitchFirstAccountHitCount
+    + gatewayTimeoutSwitchSecondAccountHitCount
+    + transportResetSwitchFirstAccountHitCount
+    + transportResetSwitchSecondAccountHitCount
     + unknownSwitchFirstAccountHitCount
     + unknownSwitchSecondAccountHitCount
     + nonStreamFirstByteTimeoutFirstAccountHitCount

@@ -233,7 +233,12 @@ export async function handleFailedUpstreamResponse(
     : decideAccountErrorPolicy(account, response.status, response.headers, Buffer.from(responseBodyText), settings)
   const parsedErrorMessage = stringValue(parsedError.message)
   const diagnosticErrorMessage = diagnosticResponseBodyText
-  if (input.retrySameAccount) {
+  if (input.retrySameAccount && shouldRetrySameAccountAfterResponseFailure({
+    statusCode: response.status,
+    parsedError,
+    bodyText: responseBodyText,
+    policyDecision
+  })) {
     auditCapture.addGatewayMetadata({
       label: 'same_account_retry_response_failed',
       metadata: {
@@ -408,7 +413,7 @@ export async function handleUpstreamRequestError(
     startedAt: attemptStartedAt,
     errorMessage: message
   })
-  if (input.retrySameAccount) {
+  if (input.retrySameAccount && shouldRetrySameAccountAfterRequestFailure(error, message)) {
     auditCapture.addGatewayMetadata({
       label: 'same_account_retry_request_failed',
       metadata: {
@@ -525,6 +530,102 @@ function sanitizeOptionalDiagnosticPayload(value: string | undefined): string | 
   return value
 }
 
+function shouldRetrySameAccountAfterResponseFailure(input: {
+  statusCode: number
+  parsedError: Record<string, unknown>
+  bodyText: string
+  policyDecision?: AccountErrorPolicyDecision
+}): boolean {
+  if (input.policyDecision) {
+    return false
+  }
+  if (isNonRetryableSameAccountResponseStatus(input.statusCode)) {
+    return false
+  }
+  return !matchesNonRetryableSameAccountResponsePayload(input.parsedError, input.bodyText)
+}
+
+function shouldRetrySameAccountAfterRequestFailure(error: unknown, message: string): boolean {
+  const code = objectStringProperty(error, 'code')?.toUpperCase()
+  if (code && nonRetryableSameAccountRequestErrorCodes.has(code)) {
+    return false
+  }
+  const constructorName = error instanceof Error ? error.constructor.name : objectStringProperty(error, 'name')
+  if (constructorName && nonRetryableSameAccountRequestErrorNames.has(constructorName)) {
+    return false
+  }
+  const normalized = message.toLowerCase()
+  return !nonRetryableSameAccountRequestMessageFragments.some((fragment) => normalized.includes(fragment))
+}
+
+function isNonRetryableSameAccountResponseStatus(statusCode: number): boolean {
+  if (statusCode >= 400 && statusCode < 500) {
+    return true
+  }
+  if (statusCode === 503 || statusCode === 504) {
+    return true
+  }
+  return statusCode >= 520 && statusCode <= 524
+}
+
+function matchesNonRetryableSameAccountResponsePayload(parsedError: Record<string, unknown>, bodyText: string): boolean {
+  const normalizedParts = [
+    stringValue(parsedError.code),
+    stringValue(parsedError.type),
+    stringValue(parsedError.message),
+    bodyText
+  ].join('\n').toLowerCase()
+  return nonRetryableSameAccountResponseFragments.some((fragment) => normalizedParts.includes(fragment))
+}
+
 function isRealUpstreamUrl(value: string): boolean {
   return /^https?:\/\//i.test(value)
 }
+
+const nonRetryableSameAccountResponseFragments = [
+  'insufficient_user_quota',
+  'insufficient_quota',
+  'quota',
+  'rate_limit',
+  'rate limit',
+  'too many requests',
+  'unauthorized',
+  'forbidden',
+  'subscription',
+  'billing',
+  'payment',
+  'invalid api key',
+  'invalid_api_key'
+]
+
+const nonRetryableSameAccountRequestErrorCodes = new Set([
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'EHOSTUNREACH',
+  'ENETUNREACH',
+  'ENOTFOUND',
+  'EPIPE',
+  'ETIMEDOUT',
+  'ERR_SOCKET_CLOSED',
+  'UND_ERR_BODY_TIMEOUT',
+  'UND_ERR_CONNECT_TIMEOUT',
+  'UND_ERR_HEADERS_TIMEOUT',
+  'UND_ERR_SOCKET'
+])
+
+const nonRetryableSameAccountRequestErrorNames = new Set([
+  'UpstreamRequestTimeoutError'
+])
+
+const nonRetryableSameAccountRequestMessageFragments = [
+  'connection reset',
+  'connect etimedout',
+  'econnreset',
+  'etimedout',
+  'fetch failed',
+  'network socket disconnected',
+  'socket hang up',
+  'timed out',
+  'timeout'
+]
