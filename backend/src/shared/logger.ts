@@ -495,6 +495,10 @@ export function installProcessLogHandlers(): void {
   })
 
   process.on('uncaughtException', (error) => {
+    if (isIgnorableProcessTransportError(error)) {
+      logger.warn(errorLogFields(error, { event: 'process_transport_error_ignored' }), 'ignored process-level write transport error')
+      return
+    }
     logger.fatal(errorLogFields(error, { event: 'process_uncaught_exception' }), '未捕获异常')
     setImmediate(() => process.exit(1))
   })
@@ -505,6 +509,16 @@ export function errorLogFields(error: unknown, fields: Record<string, unknown> =
     return { ...fields, err: pino.stdSerializers.err(error) }
   }
   return { ...fields, errorMessage: String(error) }
+}
+
+export function isIgnorableProcessTransportError(error: unknown): boolean {
+  return isObjectLike(error)
+    && error.syscall === 'write'
+    && (error.code === 'EPIPE' || error.code === 'ECONNRESET')
+}
+
+function isObjectLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function redactSensitiveLogText(value: string): string {

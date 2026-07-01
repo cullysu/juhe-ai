@@ -72,7 +72,10 @@ import {
   recordGatewayFailure,
   type GatewayFailureUsageContext
 } from './usage/records.js'
-import { isGatewayForcedDownstreamClose } from './upstream/body.js'
+import {
+  attachGatewayResponseErrorGuard,
+  isGatewayForcedDownstreamClose
+} from './upstream/body.js'
 import {
   normalizeOpenAIGatewayTrafficSource,
   type OpenAIGatewayTrafficSource
@@ -136,6 +139,7 @@ export async function handleOpenAIGatewayRequest(
 ): Promise<void> {
   const startedAt = Date.now()
   const abortController = new AbortController()
+  attachGatewayResponseErrorGuard(res)
   const traceId = getTraceId() ?? createTraceId()
   const clientIp = extractClientIp(req)
   const endpoint = requestEndpoint(req)

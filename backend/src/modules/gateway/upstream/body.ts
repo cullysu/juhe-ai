@@ -52,6 +52,8 @@ export class NonStreamUpstreamBodyPipeError extends Error {
 }
 
 const gatewayForcedDownstreamCloseReasonKey = 'gatewayForcedDownstreamCloseReason'
+const gatewayResponseErrorGuardKey = 'gatewayResponseErrorGuardAttached'
+const gatewayResponseTransportErrorKey = 'gatewayResponseTransportError'
 
 export const nonStreamResponseCaptureBytes = 2 * 1024 * 1024
 export const nonStreamUsageTailCaptureBytes = 256 * 1024
@@ -331,11 +333,19 @@ export async function readUpstreamBodyLimited(
 }
 
 export async function writeResponseChunk(res: Response, buffer: Buffer): Promise<ResponseWriteResult> {
-  if (res.writableEnded || res.destroyed) {
+  attachGatewayResponseErrorGuard(res)
+  if (lastGatewayResponseTransportError(res) || res.writableEnded || res.destroyed) {
     throw new UpstreamRequestAbortedError('请求已取消', true)
   }
-  if (res.write(buffer)) {
-    return { bytes: buffer.length, backpressure: false }
+  try {
+    if (res.write(buffer)) {
+      return { bytes: buffer.length, backpressure: false }
+    }
+  } catch (error) {
+    throw responseWriteError(error)
+  }
+  if (lastGatewayResponseTransportError(res) || res.writableEnded || res.destroyed) {
+    throw new UpstreamRequestAbortedError('downstream response write pipe closed', true)
   }
   const drainStartedAt = Date.now()
   const startedWritableLength = res.writableLength
@@ -364,6 +374,64 @@ export async function writeResponseChunk(res: Response, buffer: Buffer): Promise
   return { bytes: buffer.length, backpressure: true, drainWaitMs, logLevel }
 }
 
+export function attachGatewayResponseErrorGuard(res: Response): void {
+  const locals = responseLocals(res)
+  if (locals[gatewayResponseErrorGuardKey] === true) {
+    return
+  }
+  locals[gatewayResponseErrorGuardKey] = true
+  res.on('error', (error: Error) => {
+    locals[gatewayResponseTransportErrorKey] = error
+    const transportError = isDownstreamTransportWriteError(error)
+    getRequestLogger()[transportError ? 'warn' : 'error']({
+      event: transportError ? 'gateway_response_transport_error' : 'gateway_response_error',
+      errorCode: responseErrorCode(error),
+      syscall: responseErrorSyscall(error),
+      message: error.message,
+      headersSent: res.headersSent,
+      writableEnded: res.writableEnded,
+      destroyed: res.destroyed
+    }, transportError ? 'gateway downstream response write pipe closed' : 'gateway downstream response write error')
+  })
+}
+
+export function isDownstreamTransportWriteError(error: unknown): boolean {
+  return isObjectLike(error)
+    && responseErrorSyscall(error) === 'write'
+    && ['EPIPE', 'ECONNRESET'].includes(responseErrorCode(error) ?? '')
+}
+
+function responseWriteError(error: unknown): Error {
+  return isDownstreamTransportWriteError(error)
+    ? new UpstreamRequestAbortedError('downstream response write pipe closed', true)
+    : error instanceof Error ? error : new Error(String(error))
+}
+
+function lastGatewayResponseTransportError(res: Response): Error | undefined {
+  const error = responseLocals(res)[gatewayResponseTransportErrorKey]
+  return error instanceof Error && isDownstreamTransportWriteError(error) ? error : undefined
+}
+
+function responseLocals(res: Response): Record<string, unknown> {
+  const response = res as Response & { locals?: Record<string, unknown> }
+  if (!response.locals || typeof response.locals !== 'object') {
+    response.locals = {}
+  }
+  return response.locals
+}
+
+function isObjectLike(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function responseErrorCode(error: unknown): string | undefined {
+  return isObjectLike(error) && typeof error.code === 'string' ? error.code : undefined
+}
+
+function responseErrorSyscall(error: unknown): string | undefined {
+  return isObjectLike(error) && typeof error.syscall === 'string' ? error.syscall : undefined
+}
+
 export function bufferFromUint8Array(value: Uint8Array): Buffer {
   return Buffer.isBuffer(value)
     ? value
@@ -371,8 +439,15 @@ export function bufferFromUint8Array(value: Uint8Array): Buffer {
 }
 
 export function endResponse(res: Response): void {
+  attachGatewayResponseErrorGuard(res)
   if (!res.writableEnded && !res.destroyed) {
-    res.end()
+    try {
+      res.end()
+    } catch (error) {
+      if (!isDownstreamTransportWriteError(error)) {
+        throw error
+      }
+    }
   }
 }
 
@@ -596,7 +671,7 @@ function waitForResponseDrain(res: Response, startedAt: number): Promise<void> {
     }
     const onError = (error: Error) => {
       cleanup()
-      reject(error)
+      reject(responseWriteError(error))
     }
 
     res.once('drain', onDrain)
