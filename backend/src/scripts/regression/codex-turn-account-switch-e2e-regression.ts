@@ -120,6 +120,7 @@ async function main(): Promise<void> {
     const codexSwitch = seedTwoAccountGateway(upstreamBaseUrl, 'codex-switch')
     const latentCodexSwitch = seedThreeAccountGateway(upstreamBaseUrl, 'codex-latent-switch')
     const probeFailCodexSwitch = seedProbeFailureGateway(upstreamBaseUrl, 'codex-probe-fail')
+    const emptyProbeAttributionCodex = seedProbeFailureGateway(upstreamBaseUrl, 'codex-empty-probe-attribution')
     const mdSingleAccountCodex = seedMdSingleAccountGateway(upstreamBaseUrl, 'md-single-account')
     const httpFailCodex = seedProbeFailureGateway(upstreamBaseUrl, 'codex-http-fail')
     const nonCodex = seedTwoAccountGateway(upstreamBaseUrl, 'non-codex')
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
     await assertCodexPreCommitFailureWalksCandidatesOnServer(baseUrl, latentCodexSwitch, upstreamState)
     await assertCodexPreCommitFailureReturnsRetryableWhenAllCandidatesFail(baseUrl, probeFailCodexSwitch, upstreamState)
     await assertCodexSwitchProbeFailureUsageRecordAttributesAccount(probeFailCodexSwitch)
+    await assertCodexSwitchProbeEmptyCandidateUsageRecordAttributesRecentFailure(baseUrl, emptyProbeAttributionCodex, upstreamState)
     await assertCodexTurnBypassesProbeWhenOnlyFailedAccountExists(baseUrl, mdSingleAccountCodex, upstreamState)
     await assertCodexHttpNon2xxAllCandidatesReturnRetryableSse(baseUrl, httpFailCodex, upstreamState)
     await assertGenericPreCommitFailureSwitchesAccountOnServer(baseUrl, nonCodex, upstreamState)
@@ -153,6 +155,10 @@ async function main(): Promise<void> {
       ...probeFailCodexSwitch,
       freshAccountId: probeFailCodexSwitch.probeFailedAccountId,
       freshUpstreamKey: probeFailCodexSwitch.probeFailedUpstreamKey
+    }, {
+      ...emptyProbeAttributionCodex,
+      freshAccountId: emptyProbeAttributionCodex.probeFailedAccountId,
+      freshUpstreamKey: emptyProbeAttributionCodex.probeFailedUpstreamKey
     }, {
       ...httpFailCodex,
       freshAccountId: httpFailCodex.probeFailedAccountId,
@@ -259,6 +265,45 @@ async function assertCodexPreCommitFailureReturnsRetryableWhenAllCandidatesFail(
   assert.equal(hitCount(upstreamState, seeded.failedUpstreamKey) - beforeFailedHits, 1, '全部失败场景应先命中首选死号')
   assert.equal(hitCount(upstreamState, seeded.probeFailedUpstreamKey) - beforeProbeFailedHits, 1, '全部失败场景应隐藏重试唯一备用号')
   assert.equal(testProbeHitCount(upstreamState, seeded.probeFailedUpstreamKey) - beforeProbeHits, 0, '服务端隐藏重试耗尽前不应消耗 Codex turn 探针')
+}
+
+async function assertCodexSwitchProbeEmptyCandidateUsageRecordAttributesRecentFailure(
+  baseUrl: string,
+  seeded: SeededProbeFailureGateway,
+  upstreamState: MockUpstreamState
+): Promise<void> {
+  const turnId = 'turn-codex-empty-probe-attribution'
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const streamText = await requestResponsesStream(baseUrl, seeded.apiKey, {
+      scenario: 'codex-missing-terminal-switch',
+      turnId,
+      codex: true,
+      retryTag: `empty-probe-warmup-${attempt}`
+    })
+    assert(streamText.includes('response.failed'), `empty probe warmup ${attempt} should return failed SSE: ${streamText}`)
+    assert(streamText.includes('upstream_retryable_error'), `empty probe warmup ${attempt} should be retryable: ${streamText}`)
+  }
+
+  const beforeFailedHits = hitCount(upstreamState, seeded.failedUpstreamKey)
+  const beforeProbeHits = testProbeHitCount(upstreamState, seeded.probeFailedUpstreamKey)
+  const streamText = await requestResponsesStream(baseUrl, seeded.apiKey, {
+    scenario: 'codex-missing-terminal-switch',
+    turnId,
+    codex: true,
+    retryTag: 'empty-probe-threshold'
+  })
+
+  assert(streamText.includes('codex_switch_probe_failed'), `empty probe threshold should return codex switch probe failure: ${streamText}`)
+  assert.equal(hitCount(upstreamState, seeded.failedUpstreamKey) - beforeFailedHits, 1, 'empty probe threshold should hit the recent non-avoided failed account once')
+  assert.equal(testProbeHitCount(upstreamState, seeded.probeFailedUpstreamKey) - beforeProbeHits, 0, 'empty probe threshold should not run a probe when every remaining candidate is already avoided')
+
+  usageRecordQueue.flushAllUsageRecordQueue()
+  const records = repositories.listUsageRecords(undefined, { page: 1, pageSize: 500 }).items
+  const probeFailureRecord = records.find((record) => record.groupId === seeded.groupId && record.errorCode === 'codex_switch_probe_failed')
+  assert(probeFailureRecord, 'empty codex switch probe failure usage record should be persisted')
+  assert.equal(probeFailureRecord?.accountId, seeded.failedAccountId, 'empty codex switch probe failure should be attributed to the recent failed account')
+  assert.notEqual(probeFailureRecord?.accountName, '无目标账户', 'empty codex switch probe failure should not hydrate to "无目标账户"')
 }
 
 async function assertCodexTurnBypassesProbeWhenOnlyFailedAccountExists(

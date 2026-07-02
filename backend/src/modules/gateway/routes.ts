@@ -320,7 +320,10 @@ export async function handleOpenAIGatewayRequest(
             auditCapture,
             usageContext: gatewayUsageContext,
             startedAt,
-            probes: probeSelection.probes
+            probes: probeSelection.probes,
+            accountId: probeSelection.probes.at(-1)?.accountId
+              ?? lastIterableValue(streamServerRetryExcludedAccountIds)
+              ?? codexTurnAvoidedAccountIds?.at(-1)
           })
           return
         }
@@ -646,6 +649,14 @@ function once(callback: () => void): () => void {
   }
 }
 
+function lastIterableValue<T>(values: Iterable<T>): T | undefined {
+  let last: T | undefined
+  for (const value of values) {
+    last = value
+  }
+  return last
+}
+
 function attachClientIpSlotRelease(res: Response, preflight: OpenAIGatewayDispatchContext): () => void {
   const releaseClientIpSlot = once(preflight.releaseClientIpConcurrency)
   res.once('finish', releaseClientIpSlot)
@@ -889,17 +900,18 @@ function sendCodexSwitchProbeFailedResponse(input: {
   usageContext: GatewayFailureUsageContext
   startedAt: number
   probes: CodexSwitchProbeResult[]
+  accountId?: string
 }): void {
   const message = codexSwitchProbeFailedMessage(input.probes)
   const failureEvent = writeGatewayStreamFailureEvent(input.res, message, 'codex_switch_probe_failed')
-  const lastProbeAccountId = input.probes.at(-1)?.accountId
+  const failureAccountId = input.probes.at(-1)?.accountId ?? input.accountId
   recordGatewayFailure(input.req, input.usageContext, {
     statusCode: 200,
     startedAt: input.startedAt,
     responsePayload: gatewayErrorPayload(message, 'server_error', 'codex_switch_probe_failed'),
     errorMessage: message,
     errorCode: 'codex_switch_probe_failed',
-    accountId: lastProbeAccountId,
+    accountId: failureAccountId,
     responseSnapshot: buildUsageResponseSnapshot({
       statusCode: 200,
       headers: {
@@ -941,7 +953,7 @@ function sendCodexSwitchProbeFailedResponse(input: {
     errorPhase: 'stream',
     errorCode: 'codex_switch_probe_failed',
     errorMessage: message,
-    accountId: lastProbeAccountId
+    accountId: failureAccountId
   })
 }
 
