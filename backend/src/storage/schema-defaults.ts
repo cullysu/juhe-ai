@@ -146,7 +146,7 @@ export const OPENAI_COMPATIBLE_OPENAI_V1_PROFILE_SEED = {
 } as const
 
 export const DEFAULT_SYSTEM_SETTINGS = [
-  ['gatewayTextRawBodyLimitMegabytes', 8],
+  ['gatewayTextRawBodyLimitMegabytes', 64],
   ['systemApiRateLimitEnabled', true],
   ['systemApiRateLimitIpReadPerMinute', 600],
   ['systemApiRateLimitIpReadBurstPer10Seconds', 120],

@@ -5,6 +5,13 @@ import { optionalString, parseOptionalJsonObject } from './value-utils.js'
 export type UsageRecordRow = Record<string, unknown>
 
 const gatewayUnselectedAccountName = '无目标账户'
+const gatewayPreflightRejectedAccountName = '网关预检拒绝'
+const gatewayPreflightRejectionErrorCodes = new Set([
+  'request_too_large',
+  'entity.too.large',
+  'entity.parse.failed',
+  'gateway_body_in_flight_limit_exceeded'
+])
 
 export function hydrateUsageRecordNames(rows: UsageRecordRow[]): UsageRecordRow[] {
   if (!rows.length) return rows
@@ -86,9 +93,27 @@ function usageRecordAccountName(
   const accountName = optionalString(row.account_name)
   if (accountName) return accountName
   if (!optionalString(row.account_id) && !success && isNoSelectedAccountTrafficSource(trafficSource)) {
+    if (isGatewayPreflightRejection(row)) {
+      return gatewayPreflightRejectedAccountName
+    }
     return gatewayUnselectedAccountName
   }
   return undefined
+}
+
+function isGatewayPreflightRejection(row: UsageRecordRow): boolean {
+  const statusCode = numberValue(row.status_code)
+  const errorCode = optionalString(row.error_code)
+  if (statusCode === 413 || (errorCode && gatewayPreflightRejectionErrorCodes.has(errorCode))) {
+    return true
+  }
+  const requestSnapshot = parseOptionalJsonObject(row.request_snapshot_json)
+  const bodyOmission = requestSnapshot?.bodyOmission
+  if (typeof bodyOmission !== 'object' || bodyOmission === null || Array.isArray(bodyOmission)) {
+    return false
+  }
+  const reason = optionalString((bodyOmission as Record<string, unknown>).reason)
+  return Boolean(reason?.startsWith('gateway_body_'))
 }
 
 function isNoSelectedAccountTrafficSource(value: UsageRecordSummary['trafficSource']): boolean {
