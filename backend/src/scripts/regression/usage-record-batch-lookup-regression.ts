@@ -118,6 +118,19 @@ try {
   assert.equal(usageRecordQueue.getUsageRecordQueueRuntime().queueLength, 0, '恢复后保留的使用记录应可继续 flush 完成')
   assert.equal(usageRecordExists(retryRecord.id ?? ''), 1, '恢复后应写入保留的使用记录')
 
+  assert.equal(usageRecordQueue.getUsageRecordQueueRuntime().flushFailureCount, 0, 'usage record queue failure count should reset after a successful recovery flush')
+
+  const orphanRegistryRecord = buildUsageRecord(202, apiKey.id, group.id, account.id, '2026-01-03T00:00:00.000Z')
+  const orphanRegistryLocation = usageRecordShards.usageRecordShardLocationForRecord(orphanRegistryRecord.id ?? '', orphanRegistryRecord.createdAt)
+  usageRecordShards.getUsageRecordShardDatabase(orphanRegistryLocation)
+  databaseModule.getDatasetDatabase()
+    .prepare('DELETE FROM usage_record_shards WHERE shard_key = ?')
+    .run(orphanRegistryLocation.shardKey)
+  assert.equal(usageShardRegistryCount(orphanRegistryLocation.shardKey), 0, 'test fixture should start with a missing parent shard registry row')
+  repositories.createUsageRecordsBatch([orphanRegistryRecord])
+  assert.equal(usageRecordExists(orphanRegistryRecord.id ?? ''), 1, 'usage record write should recover when a cached shard lost its parent registry row')
+  assert.equal(usageShardRegistryCount(orphanRegistryLocation.shardKey), 1, 'missing parent shard registry row should be recreated before indexing usage records')
+
   console.log('使用记录批量查询回归通过：批量写入预加载归属，避免逐条查询 API Key/分组/账户')
 } finally {
   try {
@@ -128,8 +141,7 @@ try {
   rmSync(tempRoot, { recursive: true, force: true })
 }
 
-function buildUsageRecord(index: number, apiKeyId: string, groupId: string, accountId: string): UsageRecordInput {
-  const createdAt = new Date(Date.UTC(2026, 0, 2, 0, 0, index)).toISOString()
+function buildUsageRecord(index: number, apiKeyId: string, groupId: string, accountId: string, createdAt = new Date(Date.UTC(2026, 0, 2, 0, 0, index)).toISOString()): UsageRecordInput {
   return {
     id: usageRecordShards.generateUsageRecordId(createdAt, `batch-lookup-${index}`),
     traceId: `trace-usage-batch-lookup-${index}`,
@@ -169,6 +181,13 @@ function usageRecordExists(id: string): number {
         .get(id) as { total?: number } | undefined
       return total + Number(row?.total ?? 0)
     }, 0)
+}
+
+function usageShardRegistryCount(shardKey: string): number {
+  const row = databaseModule.getDatasetDatabase()
+    .prepare('SELECT COUNT(*) AS total FROM usage_record_shards WHERE shard_key = ?')
+    .get(shardKey) as { total?: number } | undefined
+  return Number(row?.total ?? 0)
 }
 
 async function waitForImmediate(): Promise<void> {

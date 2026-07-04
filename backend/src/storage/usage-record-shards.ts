@@ -443,6 +443,7 @@ export function recordUsageRecordShardEntries(entries: UsageRecordShardEntryInpu
   `)
   const transactionStarted = beginDatabaseTransaction(database)
   try {
+    registerUsageRecordShardLocationsForEntries(entries)
     for (const entry of entries) {
       statement.run(
         entry.id,
@@ -469,6 +470,17 @@ export function recordUsageRecordShardEntries(entries: UsageRecordShardEntryInpu
   } catch (error) {
     rollbackDatabaseTransaction(database, transactionStarted)
     throw error
+  }
+}
+
+function registerUsageRecordShardLocationsForEntries(entries: UsageRecordShardEntryInput[]): void {
+  const registered = new Set<string>()
+  for (const entry of entries) {
+    if (registered.has(entry.shardKey)) continue
+    const location = usageRecordShardLocationFromKey(entry.shardKey)
+    if (!location) continue
+    registerUsageRecordShardLocation(location)
+    registered.add(entry.shardKey)
   }
 }
 
