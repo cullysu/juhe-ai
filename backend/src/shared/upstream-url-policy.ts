@@ -232,7 +232,7 @@ function parseUpstreamUrl(
 ): URL {
   try {
     return validatorForPolicy(policy).parse(value, {
-      isPrivateHostAllowed: canUseHttpUpstreamUrlForConfiguredPrivateHost(value, config)
+      isPrivateHostAllowed: canUseHttpUpstreamUrlForConfiguredHost(value, config)
     })
   } catch (error) {
     throw new UnsafeUpstreamUrlError(error instanceof UpstreamBaseUrlValidationError ? error.message : '上游 Base URL 格式无效')
@@ -245,7 +245,7 @@ function validatorForPolicy(policy: UpstreamBaseUrlValidationPolicy): UpstreamBa
   return new UpstreamBaseUrlValidator(policy)
 }
 
-function canUseHttpUpstreamUrlForConfiguredPrivateHost(value: string, config: UpstreamUrlSecurityConfig): boolean {
+function canUseHttpUpstreamUrlForConfiguredHost(value: string, config: UpstreamUrlSecurityConfig): boolean {
   let url: URL
   try {
     url = new URL(value)
@@ -254,7 +254,10 @@ function canUseHttpUpstreamUrlForConfiguredPrivateHost(value: string, config: Up
   }
   if (url.protocol !== 'http:') return false
   const hostname = normalizeHostToken(url.hostname)
-  return isAllowedPrivateHostToken(hostname, config) || isLocalhostName(hostname) || isPrivateOrReservedIp(hostname)
+  return isAllowedHttpBaseUrlHostToken(hostname, config)
+    || isAllowedPrivateHostToken(hostname, config)
+    || isLocalhostName(hostname)
+    || isPrivateOrReservedIp(hostname)
 }
 
 function assertSafeUpstreamUrl(url: URL, config: UpstreamUrlSecurityConfig): void {
@@ -273,6 +276,11 @@ function isLocalhostName(hostname: string): boolean {
 function isAllowedPrivateHostToken(hostname: string, config: UpstreamUrlSecurityConfig): boolean {
   const normalized = normalizeHostToken(hostname)
   return config.privateBaseUrlAllowlist.some((entry) => normalizeHostToken(entry) === normalized)
+}
+
+function isAllowedHttpBaseUrlHostToken(hostname: string, config: UpstreamUrlSecurityConfig): boolean {
+  const normalized = normalizeHostToken(hostname)
+  return (config.httpBaseUrlHostAllowlist ?? []).some((entry) => normalizeHostToken(entry) === normalized)
 }
 
 function normalizeHostToken(value: string): string {

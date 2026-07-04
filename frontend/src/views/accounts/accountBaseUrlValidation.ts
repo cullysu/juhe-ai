@@ -48,8 +48,9 @@ export function validateOpenAICompatibleBaseUrl(value: string, policy: AccountBa
   }
 
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '')
-  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && policy.allowHttpForPrivateHosts && isLocalDevelopmentHost(hostname))) {
-    return '生产上游地址只允许 https 协议，http 仅用于本地 mock 或回归测试'
+  const clientAllowsHttp = policy.allowHttpForPrivateHosts || !isLocalDevelopmentHost(hostname)
+  if (url.protocol !== 'https:' && !(url.protocol === 'http:' && clientAllowsHttp)) {
+    return 'Base URL 只允许 http 或 https 协议'
   }
   if (!url.hostname) return 'Base URL 必须包含主机名'
   if (url.username || url.password) return 'Base URL 不能包含用户名或密码'

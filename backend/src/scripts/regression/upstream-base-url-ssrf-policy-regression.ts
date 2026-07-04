@@ -11,6 +11,7 @@ const previousPolicy = { ...runtimeConfig.upstreamUrlSecurity }
 const previousFakeIpDohRecheck = process.env.JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK
 runtimeConfig.upstreamUrlSecurity.allowPrivateBaseUrls = false
 runtimeConfig.upstreamUrlSecurity.privateBaseUrlAllowlist = []
+runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = []
 
 const unsafeBaseUrls = [
   'http://127.0.0.1:9/v1',
@@ -86,6 +87,24 @@ try {
     () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-ssrf-policy', base_url: 'https://[2606:4700:4700::1111]/v1' }),
     '公网 IPv6 上游地址应允许保存'
   )
+
+  runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = ['paidyun.cc']
+  assert.doesNotThrow(
+    () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-http-upstream-allowlist', base_url: 'http://paidyun.cc' }),
+    'explicit public HTTP upstream host allowlist should allow the configured relay root URL'
+  )
+  assert.throws(
+    () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-http-upstream-allowlist', base_url: 'http://paidyun.cc/v1/responses' }),
+    /\/v1/,
+    'HTTP allowlist should not weaken OpenAI-compatible Base URL path validation'
+  )
+  await assert.doesNotReject(
+    () => prepareSafeUpstreamRequestUrl('http://paidyun.cc/v1/responses', runtimeConfig.upstreamUrlSecurity, {
+      lookupHost: async () => [{ address: '104.18.1.1', family: 4 }]
+    }),
+    'gateway request URL preparation should allow configured public HTTP relay hosts'
+  )
+  runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = []
 
   const fakeIpLookup = async () => [{ address: '198.18.12.34', family: 4 as const }]
   const safeFakeIpResult = await prepareSafeUpstreamRequestUrl('https://vsllm.example/v1', runtimeConfig.upstreamUrlSecurity, {
@@ -197,12 +216,20 @@ try {
     JUHE_AI_ALLOWED_ORIGINS: 'https://admin.example.com',
     JUHE_AI_UPSTREAM_BASE_URL_PRIVATE_ALLOWLIST: '127.0.0.1'
   })
+  const productionHttpAllowlistResult = spawnRuntimeImport({
+    NODE_ENV: 'production',
+    JUHE_AI_SECRET: 'upstream-base-url-ssrf-policy-32-chars-minimum',
+    JUHE_AI_ALLOWED_ORIGINS: 'https://admin.example.com',
+    JUHE_AI_HTTP_UPSTREAM_BASE_URL_ALLOWLIST: 'paidyun.cc'
+  })
+  assert.equal(productionHttpAllowlistResult.status, 0, 'production should allow explicit public HTTP upstream host allowlist')
   assert.notEqual(productionAllowlistResult.status, 0, '生产环境不应允许配置私网上游 allowlist')
 
   console.log('上游 Base URL SSRF 策略回归通过：保存层、生产配置和网关出站兜底均拒绝私网地址')
 } finally {
   runtimeConfig.upstreamUrlSecurity.allowPrivateBaseUrls = previousPolicy.allowPrivateBaseUrls
   runtimeConfig.upstreamUrlSecurity.privateBaseUrlAllowlist = previousPolicy.privateBaseUrlAllowlist
+  runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = previousPolicy.httpBaseUrlHostAllowlist
   restoreOptionalEnv('JUHE_AI_UPSTREAM_FAKE_IP_DOH_RECHECK', previousFakeIpDohRecheck)
 }
 
@@ -216,6 +243,7 @@ function spawnRuntimeImport(env: Record<string, string>) {
       JUHE_AI_ALLOWED_ORIGINS: '',
       JUHE_AI_ALLOW_PRIVATE_UPSTREAM_BASE_URLS: '',
       JUHE_AI_UPSTREAM_BASE_URL_PRIVATE_ALLOWLIST: '',
+      JUHE_AI_HTTP_UPSTREAM_BASE_URL_ALLOWLIST: '',
       ...env
     },
     encoding: 'utf8'

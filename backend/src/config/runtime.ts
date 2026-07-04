@@ -23,6 +23,7 @@ export interface RuntimeConfig {
   upstreamUrlSecurity: {
     allowPrivateBaseUrls: boolean
     privateBaseUrlAllowlist: string[]
+    httpBaseUrlHostAllowlist: string[]
   }
   dbServiceHttpHost: string
   dbServiceHttpPort: number
@@ -281,6 +282,7 @@ function trustProxyConfig(name: string): boolean | number {
 function upstreamUrlSecurityConfig(): RuntimeConfig['upstreamUrlSecurity'] {
   const allowPrivateBaseUrls = strictBooleanConfig('JUHE_AI_ALLOW_PRIVATE_UPSTREAM_BASE_URLS', false)
   const privateBaseUrlAllowlist = listConfig('JUHE_AI_UPSTREAM_BASE_URL_PRIVATE_ALLOWLIST')
+  const httpBaseUrlHostAllowlist = listConfig('JUHE_AI_HTTP_UPSTREAM_BASE_URL_ALLOWLIST')
   if (isProductionRuntime() && allowPrivateBaseUrls) {
     throw new Error('JUHE_AI_ALLOW_PRIVATE_UPSTREAM_BASE_URLS 只能用于本地开发或回归测试，生产环境不能启用')
   }
@@ -289,7 +291,8 @@ function upstreamUrlSecurityConfig(): RuntimeConfig['upstreamUrlSecurity'] {
   }
   return {
     allowPrivateBaseUrls,
-    privateBaseUrlAllowlist
+    privateBaseUrlAllowlist,
+    httpBaseUrlHostAllowlist
   }
 }
 
