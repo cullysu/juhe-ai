@@ -5,6 +5,7 @@ export type AccountTrafficMigrationSourceStatus = 'temporary_unavailable' | 'dis
 export const ACCOUNT_CLIENT_COMPATIBILITIES = ['openai_standard', 'codex_responses'] as const
 export type AccountClientCompatibility = typeof ACCOUNT_CLIENT_COMPATIBILITIES[number]
 export type AccountSupportedEndpointMode = 'chat_json' | 'chat_sse' | 'responses_json' | 'responses_sse'
+export type AccountOpenAIPathMode = 'v1' | 'root'
 export const SYSTEM_ACCOUNT_ROLES = ['super_admin', 'admin', 'user'] as const
 export type SystemAccountRole = typeof SYSTEM_ACCOUNT_ROLES[number]
 export type ManagementSystemAccountRole = Extract<SystemAccountRole, 'super_admin' | 'admin'>
@@ -204,6 +205,7 @@ export interface ProviderModelPricing {
 export interface AccountCredentials {
   api_key?: string
   base_url?: string
+  openai_path_mode?: AccountOpenAIPathMode
   supported_endpoint_modes?: AccountSupportedEndpointMode[]
   access_token?: string
   refresh_token?: string

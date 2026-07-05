@@ -44,6 +44,7 @@ export function defaultAccountForm(
     concurrencyLimit: DEFAULT_ACCOUNT_CONCURRENCY_LIMIT,
     priority: 0,
     clientCompatibility,
+    openAIPathMode: 'v1',
     supportedEndpointModes: defaultAccountEndpointModes(resolvedProviderCode, resolvedType, clientCompatibility),
     supportedModels: [],
     modelMappings: [],

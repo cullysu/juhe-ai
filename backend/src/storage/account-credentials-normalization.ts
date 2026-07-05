@@ -13,6 +13,7 @@ const apiKeyAccountCredentialKeys = new Set([
   'api_key_strategy',
   'api_key_weights',
   'base_url',
+  'openai_path_mode',
   'supported_endpoint_modes',
   'error_handling_rules',
   'response_inspection_rules'
@@ -97,6 +98,7 @@ function normalizeApiKeyAccountCredentials(
   const credentials: Record<string, unknown> = {
     api_key: apiKeys[0],
     base_url: baseUrl,
+    openai_path_mode: normalizeOpenAIPathMode(input.openai_path_mode),
     supported_endpoint_modes: normalizeOpenAIEndpointModesForWrite(input.supported_endpoint_modes, {
       ...endpointModeDefaults,
       accountType: 'api_key'
@@ -137,6 +139,16 @@ function normalizeApiKeyCredentialList(input: Record<string, unknown>): string[]
 
 function normalizeApiKeyStrategy(value: unknown): 'round_robin' | 'weighted_round_robin' {
   return value === 'weighted_round_robin' ? 'weighted_round_robin' : 'round_robin'
+}
+
+function normalizeOpenAIPathMode(value: unknown): 'v1' | 'root' {
+  if (value === undefined || value === null || value === '') {
+    return 'v1'
+  }
+  if (value === 'v1' || value === 'root') {
+    return value
+  }
+  throw new Error('OpenAI 上游路径模式必须是 v1 或 root')
 }
 
 function normalizeApiKeyWeights(value: unknown, count: number): number[] {

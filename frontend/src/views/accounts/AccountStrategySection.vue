@@ -63,6 +63,13 @@
         :options="clientCompatibilityOptions"
       />
     </a-form-item>
+    <a-form-item v-if="!isOAuthForm" label="上游路径模式">
+      <a-select
+        v-model:value="form.openAIPathMode"
+        :disabled="authorizedEditing"
+        :options="openAIPathModeOptions"
+      />
+    </a-form-item>
     <a-form-item label="接口能力限制">
       <a-checkbox-group
         v-model:value="form.supportedEndpointModes"
@@ -110,6 +117,11 @@ import { accountEndpointModeOptions, defaultAccountEndpointModes, endpointModesE
 const clientCompatibilityOptions = [
   { label: 'OpenAI 标准', value: 'openai_standard' },
   { label: 'Codex Responses', value: 'codex_responses' }
+]
+
+const openAIPathModeOptions = [
+  { label: '自动 /v1', value: 'v1' },
+  { label: '根路径', value: 'root' }
 ]
 
 const props = defineProps<{

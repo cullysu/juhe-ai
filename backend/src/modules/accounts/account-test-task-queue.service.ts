@@ -728,6 +728,7 @@ async function openAIDraftAccountSecret(draft: AccountTestDraftSnapshot, signal:
     supportedModels: draft.supportedModels ?? [],
     modelMappings: draft.modelMappings ?? [],
     baseUrl,
+    openAIPathMode: credentials.openai_path_mode === 'root' ? 'root' : 'v1',
     apiKey,
     apiKeys: draft.type === 'api_key' ? accountApiKeyEntries(credentials).map((entry) => entry.key) : undefined,
     refreshToken: stringCredential(credentials.refresh_token) || undefined,

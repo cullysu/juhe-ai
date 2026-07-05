@@ -71,6 +71,7 @@ export function buildAccountEditFormLoad(input: AccountFormLoadInput): AccountEd
     concurrencyLimit: account.concurrencyLimit,
     priority: account.priority,
     clientCompatibility: accountClientCompatibilityForForm(account),
+    openAIPathMode: accountOpenAIPathModeForForm(credentials),
     supportedEndpointModes: accountEndpointModesForForm(account, credentials, defaults),
     proxyProfileId: account.proxyProfileId,
     accountExpiresAt,
@@ -117,6 +118,7 @@ export function buildAccountCloneFormLoad(input: AccountFormLoadInput): AccountE
     concurrencyLimit: account.concurrencyLimit,
     priority: account.priority,
     clientCompatibility: accountClientCompatibilityForForm(account),
+    openAIPathMode: accountOpenAIPathModeForForm(credentials),
     supportedEndpointModes: accountEndpointModesForForm(account, credentials, defaults),
     proxyProfileId: account.proxyProfileId,
     accountExpiresAt,
@@ -167,6 +169,10 @@ function accountEndpointModesForForm(
     credentials.supported_endpoint_modes,
     defaultAccountEndpointModes(account.providerCode, account.type, accountClientCompatibilityForForm(account) ?? defaults.clientCompatibility)
   )
+}
+
+function accountOpenAIPathModeForForm(credentials: Record<string, unknown>): AccountFormModel['openAIPathMode'] {
+  return credentials.openai_path_mode === 'root' ? 'root' : 'v1'
 }
 
 function credentialBaseUrlForForm(credentials: Record<string, unknown>, label: string): string {

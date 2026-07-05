@@ -196,6 +196,7 @@ export function runtimeOpenAIAccountCredentials(credentials: Record<string, unkn
   const output: Record<string, unknown> = {}
   copyRuntimeCredentialText(credentials, output, 'account_id')
   copyRuntimeCredentialText(credentials, output, 'api_key_strategy')
+  copyRuntimeCredentialText(credentials, output, 'openai_path_mode')
   copyRuntimeCredentialValue(credentials, output, 'supported_endpoint_modes')
   copyRuntimeCredentialValue(credentials, output, 'api_key_weights')
   copyRuntimeCredentialValue(credentials, output, 'error_handling_rules')
@@ -413,6 +414,7 @@ function openAIAccountSecretFromRow(
     qualityState: typeof row.quality_state === 'string' ? row.quality_state : undefined,
     qualityEwmaFirstTokenMs: typeof row.quality_ewma_first_token_ms === 'number' ? row.quality_ewma_first_token_ms : undefined,
     baseUrl: typeof credentials.base_url === 'string' && credentials.base_url ? credentials.base_url : 'https://api.openai.com/v1',
+    openAIPathMode: credentials.openai_path_mode === 'root' ? 'root' : 'v1',
     apiKey,
     apiKeys,
     apiKeyRuntimeStates: apiKeyPoolEnabled

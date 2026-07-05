@@ -46,6 +46,7 @@ function buildApiKeyCredentials(form: AccountFormModel): Record<string, unknown>
   const credentials = compactAccountCredentials({
     api_key: apiKey,
     base_url: form.baseUrl,
+    openai_path_mode: form.openAIPathMode === 'root' ? 'root' : 'v1',
     supported_endpoint_modes: [...form.supportedEndpointModes]
   })
   if (apiKeys.length > 1) {

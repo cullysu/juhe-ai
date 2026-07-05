@@ -1,5 +1,6 @@
 import type { Request } from 'express'
 
+import type { AccountOpenAIPathMode } from '../../../../domain/types.js'
 import type { OpenAIAccountSecret } from '../../../../storage/repositories.js'
 import {
   buildCodexModelsResponseFromCatalog,
@@ -11,20 +12,20 @@ import {
 
 export type UpstreamAccount = OpenAIAccountSecret
 
-export function buildUpstreamUrl(baseUrl: string, pathAndQuery: string): string {
-  const normalizedBase = normalizeOpenAIBaseUrl(baseUrl)
+export function buildUpstreamUrl(baseUrl: string, pathAndQuery: string, pathMode: AccountOpenAIPathMode = 'v1'): string {
+  const normalizedBase = normalizeOpenAIBaseUrl(baseUrl, pathMode)
   return `${normalizedBase}${openAIPathSuffix(pathAndQuery)}`
 }
 
-export function buildUpstreamUrls(baseUrl: string, pathAndQuery: string): string[] {
-  return [buildUpstreamUrl(baseUrl, pathAndQuery)]
+export function buildUpstreamUrls(baseUrl: string, pathAndQuery: string, pathMode: AccountOpenAIPathMode = 'v1'): string[] {
+  return [buildUpstreamUrl(baseUrl, pathAndQuery, pathMode)]
 }
 
 export function buildUpstreamUrlsForAccount(account: UpstreamAccount, req: Request): string[] {
   if (account.type === 'oauth') {
     return buildOpenAICodexUpstreamUrls(req)
   }
-  return buildUpstreamUrls(account.baseUrl, req.originalUrl)
+  return buildUpstreamUrls(account.baseUrl, req.originalUrl, openAIPathModeForAccount(account))
 }
 
 export function buildOpenAICodexUpstreamUrls(req: Request): string[] {
@@ -50,9 +51,16 @@ export function splitPathAndQuery(pathAndQuery: string): { path: string; query: 
   }
 }
 
-function normalizeOpenAIBaseUrl(baseUrl: string): string {
+function normalizeOpenAIBaseUrl(baseUrl: string, pathMode: AccountOpenAIPathMode): string {
   const normalizedBase = baseUrl.trim().replace(/\/+$/, '')
+  if (pathMode === 'root') {
+    return normalizedBase
+  }
   return normalizedBase.endsWith('/v1') ? normalizedBase : `${normalizedBase}/v1`
+}
+
+function openAIPathModeForAccount(account: UpstreamAccount): AccountOpenAIPathMode {
+  return account.credentials?.openai_path_mode === 'root' ? 'root' : 'v1'
 }
 
 function openAIPathSuffix(pathAndQuery: string): string {

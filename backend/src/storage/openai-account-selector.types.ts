@@ -1,5 +1,6 @@
 import type {
   AccountClientCompatibility,
+  AccountOpenAIPathMode,
   AccountSupportedEndpointMode,
   AccountModelMapping,
   AccountStatus,
@@ -53,6 +54,7 @@ export interface OpenAIAccountSecret {
   qualityEwmaFirstTokenMs?: number
   currentConcurrency?: number
   baseUrl: string
+  openAIPathMode?: AccountOpenAIPathMode
   apiKey: string
   apiKeys?: string[]
   apiKeyRuntimeStates?: AccountApiKeyRuntimeSelectionState[]

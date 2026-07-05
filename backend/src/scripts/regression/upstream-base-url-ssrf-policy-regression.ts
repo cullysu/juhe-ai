@@ -4,6 +4,7 @@ import http from 'node:http'
 
 import { runtimeConfig } from '../../config/runtime.js'
 import { closeGatewayUpstreamAgentsForTest, requestUpstream } from '../../modules/gateway/upstream/request.js'
+import { buildUpstreamUrl } from '../../modules/gateway/protocols/openai-v1/route-helpers.js'
 import { normalizeAccountCredentialsForWrite } from '../../storage/repositories.js'
 import { prepareSafeUpstreamRequestUrl } from '../../shared/upstream-url-policy.js'
 
@@ -88,21 +89,46 @@ try {
     '公网 IPv6 上游地址应允许保存'
   )
 
-  runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = ['paidyun.cc']
+  runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = ['paidyun.cc.cd']
   assert.doesNotThrow(
-    () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-http-upstream-allowlist', base_url: 'http://paidyun.cc' }),
+    () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-http-upstream-allowlist', base_url: 'http://paidyun.cc.cd' }),
     'explicit public HTTP upstream host allowlist should allow the configured relay root URL'
   )
   assert.throws(
-    () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-http-upstream-allowlist', base_url: 'http://paidyun.cc/v1/responses' }),
+    () => normalizeAccountCredentialsForWrite('api_key', { api_key: 'sk-http-upstream-allowlist', base_url: 'http://paidyun.cc.cd/v1/responses' }),
     /\/v1/,
     'HTTP allowlist should not weaken OpenAI-compatible Base URL path validation'
   )
   await assert.doesNotReject(
-    () => prepareSafeUpstreamRequestUrl('http://paidyun.cc/v1/responses', runtimeConfig.upstreamUrlSecurity, {
+    () => prepareSafeUpstreamRequestUrl('http://paidyun.cc.cd/v1/responses', runtimeConfig.upstreamUrlSecurity, {
       lookupHost: async () => [{ address: '104.18.1.1', family: 4 }]
     }),
     'gateway request URL preparation should allow configured public HTTP relay hosts'
+  )
+  const rootPathModeCredentials = normalizeAccountCredentialsForWrite('api_key', {
+    api_key: 'sk-http-root-path-mode',
+    base_url: 'http://paidyun.cc.cd',
+    openai_path_mode: 'root'
+  })
+  assert.equal(rootPathModeCredentials.openai_path_mode, 'root', 'root path mode should be persisted on API key credentials')
+  assert.throws(
+    () => normalizeAccountCredentialsForWrite('api_key', {
+      api_key: 'sk-http-invalid-path-mode',
+      base_url: 'http://paidyun.cc.cd',
+      openai_path_mode: 'legacy'
+    }),
+    /上游路径模式/,
+    'invalid OpenAI path mode should be rejected before runtime dispatch'
+  )
+  assert.equal(
+    buildUpstreamUrl('http://paidyun.cc.cd', '/v1/responses', 'root'),
+    'http://paidyun.cc.cd/responses',
+    'root path mode should not force /v1 for no-version relay hosts'
+  )
+  assert.equal(
+    buildUpstreamUrl('http://paidyun.cc.cd', '/v1/responses'),
+    'http://paidyun.cc.cd/v1/responses',
+    'default path mode should preserve existing OpenAI /v1 behavior'
   )
   runtimeConfig.upstreamUrlSecurity.httpBaseUrlHostAllowlist = []
 
@@ -220,7 +246,7 @@ try {
     NODE_ENV: 'production',
     JUHE_AI_SECRET: 'upstream-base-url-ssrf-policy-32-chars-minimum',
     JUHE_AI_ALLOWED_ORIGINS: 'https://admin.example.com',
-    JUHE_AI_HTTP_UPSTREAM_BASE_URL_ALLOWLIST: 'paidyun.cc'
+    JUHE_AI_HTTP_UPSTREAM_BASE_URL_ALLOWLIST: 'paidyun.cc.cd'
   })
   assert.equal(productionHttpAllowlistResult.status, 0, 'production should allow explicit public HTTP upstream host allowlist')
   assert.notEqual(productionAllowlistResult.status, 0, '生产环境不应允许配置私网上游 allowlist')
