@@ -43,6 +43,10 @@ const subscriptionRequestSchema = z.object({
 }).strict()
 
 export function registerAccountImportSubscriptionRoutes(router: Router): void {
+  router.get('/import/subscription/preview', (_req, res) => {
+    res.status(405).json(badRequest('账户订阅预览接口只支持 POST，请提交 JSON 请求体；不要直接在浏览器地址栏打开这个 API'))
+  })
+
   router.post('/import/subscription/preview', async (req, res) => {
     const scopeQuery = parseRequestScopeQuery(req.query)
     if (!scopeQuery.success) {
@@ -61,6 +65,10 @@ export function registerAccountImportSubscriptionRoutes(router: Router): void {
     } catch (error) {
       res.status(400).json(badRequest(error instanceof Error ? error.message : '账户订阅预览失败'))
     }
+  })
+
+  router.get('/import/subscription/confirm', (_req, res) => {
+    res.status(405).json(badRequest('账户订阅确认导入接口只支持 POST，请提交 JSON 请求体；不要直接在浏览器地址栏打开这个 API'))
   })
 
   router.post('/import/subscription/confirm', mutationGuard({
