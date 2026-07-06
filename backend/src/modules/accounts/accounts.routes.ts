@@ -32,6 +32,7 @@ import { registerAccountTestSessionRoutes } from './account-test-session.routes.
 import { registerAccountTestStatusRoutes } from './account-test-status.routes.js'
 import { registerAccountListRoutes } from './account-list.routes.js'
 import { registerAccountImportRoutes } from './account-import.routes.js'
+import { registerAccountImportSubscriptionRoutes } from './account-import-subscription.routes.js'
 import { registerAccountTagsRoutes } from './account-tags.routes.js'
 import { registerAccountAuthorizationReturnRoutes } from './account-authorization-return.routes.js'
 import { registerAccountTrafficMigrationRoutes } from './account-traffic-migration.routes.js'
@@ -93,6 +94,7 @@ accountsRouter.post('/test-draft', async (req, res) => {
 
 registerAccountTestStatusRoutes(accountsRouter)
 registerAccountImportRoutes(accountsRouter)
+registerAccountImportSubscriptionRoutes(accountsRouter)
 registerAccountTrafficMigrationRoutes(accountsRouter)
 registerAccountGroupBindingRoutes(accountsRouter)
 

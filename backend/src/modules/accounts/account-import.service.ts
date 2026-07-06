@@ -20,7 +20,7 @@ import { executeAccountImportPlan } from './account-import-executor.js'
 
 export const accountImportProtocolType = 'juhe-ai-account-import'
 export const accountImportProtocolVersion = 1
-export const accountImportMaxAccounts = 50
+export const accountImportMaxAccounts = 200
 export const accountImportMaxProxies = 20
 
 type ImportAction = 'create' | 'reuse' | 'skip' | 'failed'
